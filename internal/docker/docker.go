@@ -64,5 +64,5 @@ func StopContainer() error {
 
 // Exec executes a command inside the running development container.
 func Exec(command string) (string, error) {
-	return runCommand("docker", "exec", containerName, "/bin/bash", "-c", command)
+	return runCommand("docker", "exec", "--user", "root", containerName, "/bin/bash", "-c", command)
 }

@@ -33,6 +33,8 @@ func main() {
 	// Initialize the toolset
 	toolSet := tools.NewToolSet()
 	toolSet.Add(&tools.ShellTool{})
+	toolSet.Add(&tools.FileReadTool{})
+	toolSet.Add(&tools.FileWriteTool{})
 
 	// Start the Docker container
 	if err := docker.StartContainer(cfg.ChrootDir); err != nil {
@@ -105,11 +107,16 @@ REPL:
 			}
 
 			// If we get here, it's a task for the AI
-			systemPrompt := fmt.Sprintf("You are a helpful AI assistant. Your goal is to accomplish the user's task by selecting the appropriate tool and arguments. "+
+			systemPrompt := fmt.Sprintf("You are a helpful AI assistant. Your goal is to accomplish the user's task by thinking step-by-step and using the available tools. "+
+				"You can chain commands together to solve complex problems. "+
+				"1. **Think**: Analyze the user's request and create a plan. "+
+				"2. **Act**: Choose the best tool for the current step in your plan. "+
 				"You have access to the following tools:\n%s\n"+
-				"Based on the user's request, decide which tool to use. "+
 				"If the user's request is a greeting or a conversational question that does not require a tool, respond with {\\\"tool\\\": \\\"conversation\\\", \\\"args\\\": [\\\"Your conversational response here\\\"]}. "+
-				"Otherwise, respond with ONLY a JSON object in the format: {\\\"tool\\\": \\\"tool_name\\\", \\\"args\\\": [\\\"arg1\\\", \\\"arg2\\\"]}", toolSet.GetToolsDescription())
+				"Otherwise, respond with ONLY a JSON object in the format: {\\\"tool\\\": \\\"tool_name\\\", \\\"args\\\": [\\\"arg1\\\", \\\"arg2\\\"]}. "+
+				"Example of a multi-step task: User asks to 'rename the file 'old.txt' to 'new.txt'. Your thought process might be: "+
+				"1. First, I need to see if 'old.txt' exists. I will use 'shell_exec' with 'ls'. "+
+				"2. If it exists, I will use 'shell_exec' with 'mv old.txt new.txt'.", toolSet.GetToolsDescription())
 
 			prompt := fmt.Sprintf("%s\n\nUser Task: %s", systemPrompt, userInput)
 
