@@ -4,17 +4,14 @@ import (
 	"agent-thing/internal/config"
 	"agent-thing/internal/docker"
 	"agent-thing/internal/llm"
+	"agent-thing/internal/server"
 	"agent-thing/internal/tools"
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 
-	"github.com/fatih/color"
+	"github.com/gorilla/websocket"
 )
 
 // AIResponse defines the structure for the AI's JSON response.
@@ -22,6 +19,11 @@ type AIResponse struct {
 	Tool string   `json:"tool"`
 	Args []string `json:"args"`
 }
+
+var (
+	llmClient *llm.Client
+	toolSet   *tools.ToolSet
+)
 
 func main() {
 	// Load configuration
@@ -31,134 +33,122 @@ func main() {
 	}
 
 	// Initialize the toolset
-	toolSet := tools.NewToolSet()
+	toolSet = tools.NewToolSet()
 	toolSet.Add(&tools.ShellTool{})
 	toolSet.Add(&tools.FileReadTool{})
 	toolSet.Add(&tools.FileWriteTool{})
+	toolSet.Add(&tools.FileListTool{})
+
+	// Initialize the LLM client
+	llmClient, err = llm.NewClient(cfg.GeminiAPIKey, cfg.GeminiModel)
+	if err != nil {
+		log.Fatalf("Failed to create LLM client: %v", err)
+	}
 
 	// Start the Docker container
 	if err := docker.StartContainer(cfg.ChrootDir); err != nil {
 		log.Fatalf("Failed to start Docker container: %v", err)
 	}
 
-	// Ensure the container is stopped on exit
-	defer func() {
-		if err := docker.StopContainer(); err != nil {
-			log.Printf("Failed to stop Docker container: %v", err)
-		}
-	}()
+	// Start the web server
+	srv := server.NewServer(handleConnection)
+	srv.Start(":8080")
+}
 
-	// Set up graceful shutdown
-	done := make(chan bool, 1)
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-		<-c
-		fmt.Println("\nCtrl+C detected. Shutting down...")
-		done <- true
-	}()
+// handleConnection is the core logic for a single agent-user session over WebSocket.
+func handleConnection(conn *websocket.Conn) {
+	defer conn.Close()
 
-	// Initialize the LLM client
-	llmClient, err := llm.NewClient(cfg.GeminiAPIKey, cfg.GeminiModel)
-	if err != nil {
-		log.Fatalf("Failed to create LLM client: %v", err)
-	}
-
-	// Goroutine to read user input
-	inputChan := make(chan string)
-	go func() {
-		reader := bufio.NewReader(os.Stdin)
-		for {
-			input, err := reader.ReadString('\n')
-			if err != nil {
-				close(inputChan)
-				return
-			}
-			inputChan <- strings.TrimSpace(input)
-		}
-	}()
-
-	fmt.Println("\nEnter a task for the agent (or type '/tools', 'exit', or 'quit').")
-
-REPL:
 	for {
-		fmt.Print("> ")
-		select {
-		case <-done:
-			break REPL
+		// Read a message from the WebSocket
+		_, msg, err := conn.ReadMessage()
+		if err != nil {
+			log.Printf("Read error: %v", err)
+			break
+		}
 
-		case userInput, ok := <-inputChan:
-			if !ok {
-				done <- true
-				break REPL
+		userInput := string(msg)
+
+		if userInput == "/tools" {
+			description := fmt.Sprintf("Available Tools:\n%s", toolSet.GetToolsDescription())
+			if err := conn.WriteMessage(websocket.TextMessage, []byte(description)); err != nil {
+				log.Printf("Write error: %v", err)
 			}
+			continue
+		}
 
-			switch userInput {
-			case "exit", "quit":
-				fmt.Println("Exiting agent...")
-				done <- true
-				break REPL
-			case "/tools":
-				fmt.Println("\nAvailable Tools:")
-				fmt.Println(toolSet.GetToolsDescription())
-				continue
-			case "":
-				continue
+		// Construct the system prompt
+		systemPrompt := fmt.Sprintf("You are a helpful AI assistant. Your goal is to accomplish the user's task by thinking step-by-step and using the available tools. "+
+			"You can chain commands together to solve complex problems. "+
+			"1. **Think**: Analyze the user's request and create a plan. "+
+			"2. **Act**: Choose the best tool for the current step in your plan. "+
+			"You have access to the following tools:\n%s\n"+
+			"If the user's request is a greeting or a conversational question that does not require a tool, respond with {\\\"tool\\\": \\\"conversation\\\", \\\"args\\\": [\\\"Your conversational response here\\\"]}. "+
+			"Otherwise, respond with ONLY a JSON object in the format: {\\\"tool\\\": \\\"tool_name\\\", \\\"args\\\": [\\\"arg1\\\", \\\"arg2\\\"]}. "+
+			"Example of a multi-step task: User asks to 'rename the file 'old.txt' to 'new.txt'. Your thought process might be: "+
+			"1. First, I need to see what files are in the current directory. I will use 'file_list' with '.'. "+
+			"2. If I see 'old.txt', I will use 'shell_exec' with 'mv old.txt new.txt'.", toolSet.GetToolsDescription())
+
+		prompt := fmt.Sprintf("%s\n\nUser Task: %s", systemPrompt, userInput)
+
+		if err := conn.WriteMessage(websocket.TextMessage, []byte("Agent is thinking...")); err != nil {
+			log.Printf("Write error: %v", err)
+		}
+
+		// Get the JSON response from the LLM
+		jsonResponse, err := llmClient.GenerateContent(prompt)
+		if err != nil {
+			errMsg := fmt.Sprintf("Failed to get response from LLM: %v", err)
+			if err := conn.WriteMessage(websocket.TextMessage, []byte(errMsg)); err != nil {
+				log.Printf("Write error: %v", err)
 			}
+			continue
+		}
 
-			// If we get here, it's a task for the AI
-			systemPrompt := fmt.Sprintf("You are a helpful AI assistant. Your goal is to accomplish the user's task by thinking step-by-step and using the available tools. "+
-				"You can chain commands together to solve complex problems. "+
-				"1. **Think**: Analyze the user's request and create a plan. "+
-				"2. **Act**: Choose the best tool for the current step in your plan. "+
-				"You have access to the following tools:\n%s\n"+
-				"If the user's request is a greeting or a conversational question that does not require a tool, respond with {\\\"tool\\\": \\\"conversation\\\", \\\"args\\\": [\\\"Your conversational response here\\\"]}. "+
-				"Otherwise, respond with ONLY a JSON object in the format: {\\\"tool\\\": \\\"tool_name\\\", \\\"args\\\": [\\\"arg1\\\", \\\"arg2\\\"]}. "+
-				"Example of a multi-step task: User asks to 'rename the file 'old.txt' to 'new.txt'. Your thought process might be: "+
-				"1. First, I need to see if 'old.txt' exists. I will use 'shell_exec' with 'ls'. "+
-				"2. If it exists, I will use 'shell_exec' with 'mv old.txt new.txt'.", toolSet.GetToolsDescription())
-
-			prompt := fmt.Sprintf("%s\n\nUser Task: %s", systemPrompt, userInput)
-
-			color.Yellow("Agent is thinking...")
-
-			jsonResponse, err := llmClient.GenerateContent(prompt)
-			if err != nil {
-				color.Red("Failed to get response from LLM: %v", err)
-				continue
+		// Parse and execute
+		cleanedJSON := strings.Trim(strings.TrimSpace(jsonResponse), "`\njson")
+		var aiResp AIResponse
+		if err := json.Unmarshal([]byte(cleanedJSON), &aiResp); err != nil {
+			errMsg := fmt.Sprintf("Failed to parse AI response: %v\nRaw response: %s", err, cleanedJSON)
+			if err := conn.WriteMessage(websocket.TextMessage, []byte(errMsg)); err != nil {
+				log.Printf("Write error: %v", err)
 			}
+			continue
+		}
 
-			cleanedJSON := strings.Trim(strings.TrimSpace(jsonResponse), "`\njson")
-			var aiResp AIResponse
-			if err := json.Unmarshal([]byte(cleanedJSON), &aiResp); err != nil {
-				color.Red("Failed to parse AI response: %v\nRaw response: %s", err, cleanedJSON)
-				continue
+		if aiResp.Tool == "conversation" {
+			if err := conn.WriteMessage(websocket.TextMessage, []byte(strings.Join(aiResp.Args, " "))); err != nil {
+				log.Printf("Write error: %v", err)
 			}
+			continue
+		}
 
-			if aiResp.Tool == "conversation" {
-				color.Green(strings.Join(aiResp.Args, " "))
-				continue
+		tool, ok := toolSet.Get(aiResp.Tool)
+		if !ok {
+			errMsg := fmt.Sprintf("Error: AI requested an unknown tool: '%s'", aiResp.Tool)
+			if err := conn.WriteMessage(websocket.TextMessage, []byte(errMsg)); err != nil {
+				log.Printf("Write error: %v", err)
 			}
+			continue
+		}
 
-			tool, ok := toolSet.Get(aiResp.Tool)
-			if !ok {
-				color.Red("Error: AI requested an unknown tool: '%s'", aiResp.Tool)
-				continue
+		msg = []byte(fmt.Sprintf("Executing tool '%s' with args: %v", aiResp.Tool, aiResp.Args))
+		if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+			log.Printf("Write error: %v", err)
+		}
+
+		output, err := tool.Execute(aiResp.Args...)
+		if err != nil {
+			errMsg := fmt.Sprintf("Failed to execute tool '%s': %v", aiResp.Tool, err)
+			if err := conn.WriteMessage(websocket.TextMessage, []byte(errMsg)); err != nil {
+				log.Printf("Write error: %v", err)
 			}
+			continue
+		}
 
-			color.Cyan("Executing tool '%s' with args: %v", aiResp.Tool, aiResp.Args)
-			output, err := tool.Execute(aiResp.Args...)
-			if err != nil {
-				color.Red("Failed to execute tool '%s': %v", aiResp.Tool, err)
-				continue
-			}
-
-			color.Green("\n--- Output ---")
-			fmt.Println(output)
-			color.Green("--------------")
+		finalOutput := fmt.Sprintf("--- Output ---\n%s", output)
+		if err := conn.WriteMessage(websocket.TextMessage, []byte(finalOutput)); err != nil {
+			log.Printf("Write error: %v", err)
 		}
 	}
-
-	<-done
-	fmt.Println("Shutdown signal received. Container will be stopped.")
 }

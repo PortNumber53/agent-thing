@@ -7,6 +7,8 @@ require (
 	github.com/fatih/color v1.18.0
 	github.com/golang-migrate/migrate/v4 v4.19.0
 	github.com/google/generative-ai-go v0.20.1
+	github.com/gorilla/mux v1.7.4
+	github.com/gorilla/websocket v1.5.3
 	google.golang.org/api v0.248.0
 	gopkg.in/ini.v1 v1.67.0
 )

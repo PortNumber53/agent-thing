@@ -29,11 +29,20 @@ func (fw *FileWriteTool) Execute(args ...string) (string, error) {
 
 	// To handle multi-line content and special characters, it's safer to use a here-document with `tee`.
 	// This prevents issues with shell interpretation of the content string.
-	command := fmt.Sprintf("tee %s <<'EOF'\n%s\nEOF", filePath, content)
+	writeCommand := fmt.Sprintf("tee %s <<'EOF'\n%s\nEOF", filePath, content)
 
-	_, err := docker.Exec(command)
+	// Execute the write command first.
+	_, err := docker.Exec(writeCommand)
 	if err != nil {
 		return "", err
+	}
+
+	// Immediately change the ownership of the new file.
+	chownCommand := fmt.Sprintf("chown developer:developer %s", filePath)
+	_, err = docker.Exec(chownCommand)
+	if err != nil {
+		// If chown fails, log it but don't fail the whole operation, as the file was still written.
+		return fmt.Sprintf("Successfully wrote to %s, but failed to change ownership.", filePath), nil
 	}
 
 	return fmt.Sprintf("Successfully wrote to %s", filePath), nil

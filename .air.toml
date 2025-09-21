@@ -5,7 +5,7 @@ tmp_dir = "tmp"
 [build]
   cmd = "go build -o ./tmp/main agent.go"
   bin = "./tmp/main"
-  full_bin = "APP_ENV=dev APP_USER=grimlock ./tmp/main"
+  full_bin = "./tmp/main"
   delay = 1000 # ms
   include_ext = ["go", "tpl", "tmpl", "html"]
   exclude_dir = ["assets", "tmp", "vendor"]

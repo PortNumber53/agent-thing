@@ -11,10 +11,7 @@ DB_SSLMODE := $(shell awk -F'=' '/^DB_SSLMODE/ {gsub(/[ \t]/, "", $$2); print $$
 
 DB_URL=postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)
 
-.PHONY: run migrateup migratedown force new_migration
-
-run:
-	go run agent.go
+.PHONY: migrateup migratedown force new_migration
 
 migrateup:
 	@echo "Running migrations up on $(DB_HOST)..."
