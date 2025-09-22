@@ -1,27 +1,13 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Agent Chat</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; background-color: #f0f2f5; }
-        #messages { list-style-type: none; margin: 0; padding: 20px; overflow-y: auto; flex-grow: 1; }
-        #messages li { padding: 10px 15px; margin-bottom: 10px; border-radius: 20px; max-width: 70%; word-wrap: break-word; }
-        .user-message { background-color: #0084ff; color: white; margin-left: auto; }
-        .agent-message { background-color: #e4e6eb; color: #050505; margin-right: auto; }
-        .status-message { text-align: center; color: #65676b; font-style: italic; }
-        form { display: flex; padding: 10px; background: white; border-top: 1px solid #ddd; }
-        input { border: 1px solid #ddd; padding: 10px; flex-grow: 1; border-radius: 18px; font-size: 16px; }
-        button { background: #0084ff; border: none; padding: 10px 15px; color: white; border-radius: 18px; cursor: pointer; font-size: 16px; margin-left: 10px; }
-        button:hover { background: #0073e6; }
-    </style>
-</head>
-<body>
-    <ul id="messages"></ul>
-    <form id="form" action="">
-        <input id="input" autocomplete="off" placeholder="Enter a task for the agent..." /><button>Send</button>
-    </form>
-    <script src="/main.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vite + React + TS</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>

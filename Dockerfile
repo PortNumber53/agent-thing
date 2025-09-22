@@ -3,7 +3,7 @@ FROM archlinux:latest
 
 # Update the system and install base development tools
 RUN pacman -Syu --noconfirm && \
-    pacman -S --noconfirm base-devel git openssh
+    pacman -S --noconfirm base-devel git openssh coreutils
 
 # Create a non-root user for development
 RUN useradd -m -G wheel -s /bin/bash developer && \

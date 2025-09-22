@@ -32,5 +32,10 @@ go.work.sum
 # .vscode/
 
 # Agent-specific directories
-/tmp
+/tmp/
+
+# Frontend build artifacts
+frontend/node_modules
+frontend/dist
+
 /work_area

@@ -1,15 +1,16 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"strings"
+
 	"agent-thing/internal/config"
 	"agent-thing/internal/docker"
 	"agent-thing/internal/llm"
 	"agent-thing/internal/server"
 	"agent-thing/internal/tools"
-	"encoding/json"
-	"fmt"
-	"log"
-	"strings"
 
 	"github.com/gorilla/websocket"
 )
@@ -32,12 +33,18 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
+	// Initialize Docker client
+	if err := docker.Init(); err != nil {
+		log.Fatalf("Failed to initialize Docker client: %v", err)
+	}
+
 	// Initialize the toolset
 	toolSet = tools.NewToolSet()
 	toolSet.Add(&tools.ShellTool{})
 	toolSet.Add(&tools.FileReadTool{})
 	toolSet.Add(&tools.FileWriteTool{})
 	toolSet.Add(&tools.FileListTool{})
+	toolSet.Add(&tools.SSHKeyGenTool{})
 
 	// Initialize the LLM client
 	llmClient, err = llm.NewClient(cfg.GeminiAPIKey, cfg.GeminiModel)
@@ -51,104 +58,124 @@ func main() {
 	}
 
 	// Start the web server
-	srv := server.NewServer(handleConnection)
+	srv := server.NewServer(runAgentLogic)
 	srv.Start(":8080")
 }
 
 // handleConnection is the core logic for a single agent-user session over WebSocket.
-func handleConnection(conn *websocket.Conn) {
+type incomingMessage struct {
+	Type    string          `json:"type"`
+	Payload json.RawMessage `json:"payload"`
+}
+
+type toolExecPayload struct {
+	Tool string   `json:"tool"`
+	Args []string `json:"args"`
+}
+
+func constructPrompt(userInput, conversationSummary string, ts *tools.ToolSet) string {
+	return fmt.Sprintf("You are a helpful AI assistant. This is the conversation so far: %s\n\nUser's request: %s\n\nAvailable tools:\n%s\n\nDecide which tool to use to best respond to the user's request. Respond in JSON format.", conversationSummary, userInput, ts.GetToolsDescription())
+}
+
+func runAgentLogic(conn *websocket.Conn) {
 	defer conn.Close()
+	var conversationSummary string
 
 	for {
-		// Read a message from the WebSocket
+		// Read message from browser
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
-			log.Printf("Read error: %v", err)
-			break
+			log.Println("WebSocket closed")
+			return
 		}
 
-		userInput := string(msg)
-
-		if userInput == "/tools" {
-			description := fmt.Sprintf("Available Tools:\n%s", toolSet.GetToolsDescription())
-			if err := conn.WriteMessage(websocket.TextMessage, []byte(description)); err != nil {
-				log.Printf("Write error: %v", err)
-			}
+		var req incomingMessage
+		if err := json.Unmarshal(msg, &req); err != nil {
+			log.Printf("Error unmarshalling message: %v", err)
 			continue
 		}
 
-		// Construct the system prompt
-		systemPrompt := fmt.Sprintf("You are a helpful AI assistant. Your goal is to accomplish the user's task by thinking step-by-step and using the available tools. "+
-			"You can chain commands together to solve complex problems. "+
-			"1. **Think**: Analyze the user's request and create a plan. "+
-			"2. **Act**: Choose the best tool for the current step in your plan. "+
-			"You have access to the following tools:\n%s\n"+
-			"If the user's request is a greeting or a conversational question that does not require a tool, respond with {\\\"tool\\\": \\\"conversation\\\", \\\"args\\\": [\\\"Your conversational response here\\\"]}. "+
-			"Otherwise, respond with ONLY a JSON object in the format: {\\\"tool\\\": \\\"tool_name\\\", \\\"args\\\": [\\\"arg1\\\", \\\"arg2\\\"]}. "+
-			"Example of a multi-step task: User asks to 'rename the file 'old.txt' to 'new.txt'. Your thought process might be: "+
-			"1. First, I need to see what files are in the current directory. I will use 'file_list' with '.'. "+
-			"2. If I see 'old.txt', I will use 'shell_exec' with 'mv old.txt new.txt'.", toolSet.GetToolsDescription())
-
-		prompt := fmt.Sprintf("%s\n\nUser Task: %s", systemPrompt, userInput)
-
-		if err := conn.WriteMessage(websocket.TextMessage, []byte("Agent is thinking...")); err != nil {
-			log.Printf("Write error: %v", err)
-		}
-
-		// Get the JSON response from the LLM
-		jsonResponse, err := llmClient.GenerateContent(prompt)
-		if err != nil {
-			errMsg := fmt.Sprintf("Failed to get response from LLM: %v", err)
-			if err := conn.WriteMessage(websocket.TextMessage, []byte(errMsg)); err != nil {
-				log.Printf("Write error: %v", err)
-			}
-			continue
-		}
-
-		// Parse and execute
-		cleanedJSON := strings.Trim(strings.TrimSpace(jsonResponse), "`\njson")
-		var aiResp AIResponse
-		if err := json.Unmarshal([]byte(cleanedJSON), &aiResp); err != nil {
-			errMsg := fmt.Sprintf("Failed to parse AI response: %v\nRaw response: %s", err, cleanedJSON)
-			if err := conn.WriteMessage(websocket.TextMessage, []byte(errMsg)); err != nil {
-				log.Printf("Write error: %v", err)
-			}
-			continue
-		}
-
-		if aiResp.Tool == "conversation" {
-			if err := conn.WriteMessage(websocket.TextMessage, []byte(strings.Join(aiResp.Args, " "))); err != nil {
-				log.Printf("Write error: %v", err)
-			}
-			continue
-		}
-
-		tool, ok := toolSet.Get(aiResp.Tool)
-		if !ok {
-			errMsg := fmt.Sprintf("Error: AI requested an unknown tool: '%s'", aiResp.Tool)
-			if err := conn.WriteMessage(websocket.TextMessage, []byte(errMsg)); err != nil {
-				log.Printf("Write error: %v", err)
-			}
-			continue
-		}
-
-		msg = []byte(fmt.Sprintf("Executing tool '%s' with args: %v", aiResp.Tool, aiResp.Args))
-		if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
-			log.Printf("Write error: %v", err)
-		}
-
-		output, err := tool.Execute(aiResp.Args...)
-		if err != nil {
-			errMsg := fmt.Sprintf("Failed to execute tool '%s': %v", aiResp.Tool, err)
-			if err := conn.WriteMessage(websocket.TextMessage, []byte(errMsg)); err != nil {
-				log.Printf("Write error: %v", err)
-			}
-			continue
-		}
-
-		finalOutput := fmt.Sprintf("--- Output ---\n%s", output)
-		if err := conn.WriteMessage(websocket.TextMessage, []byte(finalOutput)); err != nil {
-			log.Printf("Write error: %v", err)
+		switch req.Type {
+		case "conversation":
+			handleConversation(conn, req.Payload, &conversationSummary)
+		case "tool_exec":
+			handleToolExec(conn, req.Payload, &conversationSummary)
+		default:
+			log.Printf("Unknown message type: %s", req.Type)
 		}
 	}
+}
+
+func handleConversation(conn *websocket.Conn, payload json.RawMessage, conversationSummary *string) {
+	var userInput string
+	json.Unmarshal(payload, &userInput)
+
+	if err := conn.WriteMessage(websocket.TextMessage, []byte("Agent is thinking...")); err != nil {
+		log.Printf("Write error: %v", err)
+	}
+
+	prompt := constructPrompt(userInput, *conversationSummary, toolSet)
+	rawResp, err := llmClient.GenerateContent(prompt)
+	if err != nil {
+		// handle error
+		return
+	}
+
+	var aiResp AIResponse
+	if err := json.Unmarshal([]byte(rawResp), &aiResp); err != nil {
+		// handle error
+		return
+	}
+
+	if aiResp.Tool == "conversation" {
+		response := strings.Join(aiResp.Args, " ")
+		conn.WriteMessage(websocket.TextMessage, []byte(response))
+		newSummary, _ := updateSummary(*conversationSummary, userInput, response)
+		*conversationSummary = newSummary
+		return
+	}
+
+	executeTool(conn, aiResp.Tool, aiResp.Args, userInput, conversationSummary)
+}
+
+func handleToolExec(conn *websocket.Conn, payload json.RawMessage, conversationSummary *string) {
+	var toolReq toolExecPayload
+	json.Unmarshal(payload, &toolReq)
+
+	userInput := fmt.Sprintf("User directly executed tool '%s'", toolReq.Tool)
+	executeTool(conn, toolReq.Tool, toolReq.Args, userInput, conversationSummary)
+}
+
+func executeTool(conn *websocket.Conn, toolName string, args []string, userInput string, conversationSummary *string) {
+	tool, ok := toolSet.Get(toolName)
+	if !ok {
+		// handle error
+		return
+	}
+
+	thinkingMsg := fmt.Sprintf("Executing tool '%s' with args: %v", tool.Name(), args)
+	conn.WriteMessage(websocket.TextMessage, []byte(thinkingMsg))
+
+	output, err := tool.Execute(args...)
+	if err != nil {
+		// handle error
+		return
+	}
+
+	conn.WriteMessage(websocket.TextMessage, []byte(output))
+
+	newSummary, _ := updateSummary(*conversationSummary, userInput, output)
+	*conversationSummary = newSummary
+}
+
+// updateSummary asks the LLM to summarize the last interaction and add it to the conversation summary.
+func updateSummary(currentSummary, userInput, agentOutput string) (string, error) {
+	summarizationPrompt := fmt.Sprintf("Current Summary:\n%s\n\nLast Interaction:\nUser: %s\nAgent: %s\n\nInstructions:\nUpdate the summary with the key information from the last interaction. Keep it concise. If the last interaction was a simple greeting, you can keep the summary empty.", currentSummary, userInput, agentOutput)
+
+	newSummary, err := llmClient.GenerateContent(summarizationPrompt)
+	if err != nil {
+		return "", fmt.Errorf("failed to get new summary from LLM: %w", err)
+	}
+
+	return strings.TrimSpace(newSummary), nil
 }

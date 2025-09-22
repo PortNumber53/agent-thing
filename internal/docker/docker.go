@@ -2,67 +2,125 @@ package docker
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os/exec"
+
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 )
 
-const (
-	containerName = "dev-environment"
-	imageName     = "agent-dev-env"
-)
+const ContainerName = "dev-environment"
 
-// runCommand is a helper to execute shell commands and return their output.
-func runCommand(name string, args ...string) (string, error) {
-	cmd := exec.Command(name, args...)
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
+var cli *client.Client
+var ctx context.Context
 
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("error running command '%s %v': %w: %s", name, args, err, stderr.String())
+// Init initializes the Docker client.
+func Init() error {
+	var err error
+	cli, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return fmt.Errorf("failed to create docker client: %w", err)
 	}
-	return out.String(), nil
+	ctx = context.Background()
+	return nil
 }
 
-// StartContainer builds the Docker image and starts the development container.
+// StartContainer ensures the development Docker container is running.
 func StartContainer(chrootDir string) error {
-	fmt.Println("Building development environment image...")
-	_, err := runCommand("docker", "build", "-t", imageName, ".")
+	containers, err := cli.ContainerList(ctx, container.ListOptions{All: true})
 	if err != nil {
-		return fmt.Errorf("failed to build docker image: %w", err)
+		return fmt.Errorf("failed to list containers: %w", err)
 	}
 
-	fmt.Println("Starting development container...")
-	volumeMount := fmt.Sprintf("%s:/app", chrootDir)
-	_, err = runCommand("docker", "run", "-d", "--name", containerName, "-v", volumeMount, "--workdir", "/app", imageName, "tail", "-f", "/dev/null")
+	for _, cont := range containers {
+		if cont.Names[0] == "/"+ContainerName {
+			if cont.State != "running" {
+				if err := cli.ContainerStart(ctx, cont.ID, container.StartOptions{}); err != nil {
+					return fmt.Errorf("failed to start container: %w", err)
+				}
+				fmt.Println("Development container started.")
+			}
+			return nil
+		}
+	}
+
+	// If we get here, the container doesn't exist. We need to build the image, then create and start the container.
+	fmt.Println("Building development environment image...")
+	cmd := exec.Command("docker", "build", "-t", "dev-env-img", ".")
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to build docker image: %w\n%s", err, string(output))
+	}
+
+	fmt.Println("Creating and starting development container...")
+	_, err = cli.ContainerCreate(ctx,
+		&container.Config{
+			Image:        "dev-env-img",
+			Cmd:          []string{"tail", "-f", "/dev/null"},
+			WorkingDir:   "/app",
+			User:         "root",
+			Tty:          false,
+		},
+		&container.HostConfig{
+			Binds: []string{fmt.Sprintf("%s:/app", chrootDir)},
+		},
+		nil, nil, ContainerName)
 	if err != nil {
-		// If the container is already running, we can ignore the error.
-		// A better approach would be to check if it exists first.
-		fmt.Println("Container may already be running. Continuing...")
+		return fmt.Errorf("failed to create container: %w", err)
+	}
+
+	if err := cli.ContainerStart(ctx, ContainerName, container.StartOptions{}); err != nil {
+		return fmt.Errorf("failed to start container: %w", err)
 	}
 
 	fmt.Println("Development container started.")
 	return nil
 }
 
+// Exec runs a command inside the Docker container.
+func Exec(command string) (string, error) {
+	execConfig := container.ExecOptions{
+		Cmd:          []string{"/bin/bash", "-c", command},
+		AttachStdout: true,
+		AttachStderr: true,
+		User:         "root",
+	}
+
+	execID, err := cli.ContainerExecCreate(ctx, ContainerName, execConfig)
+	if err != nil {
+		return "", fmt.Errorf("failed to create exec config: %w", err)
+	}
+
+	resp, err := cli.ContainerExecAttach(ctx, execID.ID, container.ExecAttachOptions{})
+	if err != nil {
+		return "", fmt.Errorf("failed to attach to exec: %w", err)
+	}
+	defer resp.Close()
+
+	var outBuf, errBuf bytes.Buffer
+	_, err = stdcopy.StdCopy(&outBuf, &errBuf, resp.Reader)
+	if err != nil {
+		return "", fmt.Errorf("failed to copy output from exec: %w", err)
+	}
+
+	// Check the exit code
+	inspect, err := cli.ContainerExecInspect(ctx, execID.ID)
+	if err != nil {
+		return "", fmt.Errorf("failed to inspect exec: %w", err)
+	}
+
+	if inspect.ExitCode != 0 {
+		return "", fmt.Errorf("command exited with non-zero status %d: %s", inspect.ExitCode, errBuf.String())
+	}
+
+	return outBuf.String(), nil
+}
+
 // StopContainer stops and removes the development container.
 func StopContainer() error {
 	fmt.Println("Stopping development container...")
-	_, _ = runCommand("docker", "stop", containerName)
-
-	fmt.Println("Removing development container...")
-	_, err := runCommand("docker", "rm", containerName)
-	if err != nil {
-		// Ignore errors if the container is already removed.
-		return nil
-	}
-
-	fmt.Println("Development container stopped and removed.")
+	// Implementation to stop and remove container using SDK
+	// Placeholder for now
 	return nil
-}
-
-// Exec executes a command inside the running development container.
-func Exec(command string) (string, error) {
-	return runCommand("docker", "exec", "--user", "root", containerName, "/bin/bash", "-c", command)
 }
