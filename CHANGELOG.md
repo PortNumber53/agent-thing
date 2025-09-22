@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Development Environment**: Added `vim`, `nano`, `make`, `cmake`, `python`, `nodejs-lts-iron`, `npm`, `gdb`, `curl`, and `wget` to the `Dockerfile` to provide a more complete development environment for the agent.
+
 ## [0.2.0] - 2025-09-21
 
 ### Added
