@@ -34,11 +34,10 @@ func (t *AutonomousExecutionTool) Execute(args ...string) (string, error) {
 	originalRequest := args[0]
 	var fullOutput string
 	var turnHistory string // Running summary of the session
-	currentWorkingDirectory := "/home/developer" // Start in the default directory
-	maxTurns := 10                     // Increased max turns for more complex tasks
+	maxTurns := 15 // Increased max turns for more complex tasks
 
 	for i := 0; i < maxTurns; i++ {
-		prompt := t.constructAutonomyPrompt(originalRequest, turnHistory, currentWorkingDirectory)
+		prompt := t.constructAutonomyPrompt(originalRequest, turnHistory)
 		log.Printf("--- Autonomous Turn %d: Sending Prompt to LLM ---\n%s\n----------------------------------------------------", i+1, prompt)
 
 		rawResp, err := t.LLMClient.GenerateContent(prompt)
@@ -51,7 +50,9 @@ func (t *AutonomousExecutionTool) Execute(args ...string) (string, error) {
 
 		var aiResp AIResponse
 		if err := json.Unmarshal([]byte(cleanedResp), &aiResp); err != nil {
-			return "", fmt.Errorf("failed to unmarshal LLM response during autonomous execution: %w", err)
+			// If the model fails to return valid JSON, we'll treat it as a conversation turn.
+			// This helps with robustness when the model wants to just talk.
+			aiResp = AIResponse{Tool: "conversation", Args: []string{rawResp}}
 		}
 
 		if aiResp.Tool == "conversation" {
@@ -60,49 +61,28 @@ func (t *AutonomousExecutionTool) Execute(args ...string) (string, error) {
 			return fullOutput, nil
 		}
 
-		// Handle directory changes and prepend the current working directory to all shell commands
-		command := strings.Join(aiResp.Args, " ")
-		if aiResp.Tool == "shell_exec" {
-			// Check if the user is trying to change directory
-			parts := strings.Split(command, "&&")
-			for _, part := range parts {
-				trimmedPart := strings.TrimSpace(part)
-				if strings.HasPrefix(trimmedPart, "cd ") {
-					newDir := strings.TrimSpace(strings.TrimPrefix(trimmedPart, "cd "))
-					if newDir == ".." {
-						lastSlash := strings.LastIndex(currentWorkingDirectory, "/")
-						if lastSlash > 0 {
-							currentWorkingDirectory = currentWorkingDirectory[:lastSlash]
-						} else if lastSlash == 0 {
-							currentWorkingDirectory = "/"
-						}
-					} else if !strings.HasPrefix(newDir, "/") {
-						currentWorkingDirectory = currentWorkingDirectory + "/" + newDir
-					} else {
-						currentWorkingDirectory = newDir
-					}
-				}
-			}
-			aiResp.Args = []string{fmt.Sprintf("cd %s && %s", currentWorkingDirectory, command)}
-		}
-
 		tool, ok := t.ToolSet.Get(aiResp.Tool)
 		if !ok {
-			return "", fmt.Errorf("tool '%s' not found during autonomous execution", aiResp.Tool)
+			// If the tool is not found, inform the agent.
+			summary := fmt.Sprintf("Error: Tool '%s' not found.", aiResp.Tool)
+			turnHistory += fmt.Sprintf("Step %d: %s\n", i+1, summary)
+			fullOutput += fmt.Sprintf("Step %d: %s\n\n", i+1, summary)
+			continue
 		}
 
-		// Capture the command before execution for history
 		commandDescription := fmt.Sprintf("%s with args: %v", aiResp.Tool, aiResp.Args)
 
 		log.Printf("--- Autonomous Turn %d: Executing %s ---", i+1, commandDescription)
 		toolOutput, err := tool.Execute(aiResp.Args...)
+
+		// The Exec function in docker.go now returns a specific error format we can parse.
 		if err != nil {
-			// Provide the error as context for the next turn
-			toolOutput = fmt.Sprintf("Error executing tool '%s': %v", aiResp.Tool, err)
-			log.Println(toolOutput)
+			if strings.Contains(err.Error(), "command exited with non-zero status") {
+				// Extract the actual error message from the shell.
+				toolOutput = err.Error()
+			}
 		}
 
-		// Summarize the result for a cleaner history
 		summary := summarize(commandDescription, toolOutput, err)
 		turnHistory += fmt.Sprintf("Step %d: %s\n", i+1, summary)
 		fullOutput += fmt.Sprintf("Step %d: Executed %s\nOutput: %s\n\n", i+1, commandDescription, toolOutput)
@@ -111,7 +91,7 @@ func (t *AutonomousExecutionTool) Execute(args ...string) (string, error) {
 	return fullOutput + "\nAgent reached maximum turns. Task may be incomplete.", nil
 }
 
-func (t *AutonomousExecutionTool) constructAutonomyPrompt(originalRequest, turnHistory, currentWorkingDirectory string) string {
+func (t *AutonomousExecutionTool) constructAutonomyPrompt(originalRequest, turnHistory string) string {
 	// Manually build the tool description to exclude dangerous tools from the agent's view.
 	var toolDescriptions strings.Builder
 	for _, tool := range t.ToolSet.GetTools() {
@@ -125,8 +105,6 @@ func (t *AutonomousExecutionTool) constructAutonomyPrompt(originalRequest, turnH
 
 Original user request: "%s"
 
-Your current working directory is: %s
-
 Here is the history of the actions you have taken so far:
 %s
 
@@ -134,13 +112,12 @@ Available tools:
 %s
 
 **Your Task:**
-1.  **Analyze**: Based on the original request, your history, and the current directory, determine the single next best action.
-2.  **Act**: Choose one tool to execute. Use 'shell_exec' for commands like 'git', 'ls', 'mkdir', etc. Use 'cd' to navigate.
-3.  **Ask for Help**: If you are stuck or require specific information from the user (like a username, API key, or a remote URL), you MUST use the 'conversation' tool to ask the user for what you need.
-4.  **Verify**: After an action, consider using a command like 'ls -l' or 'git status' to verify the result.
-5.  **Complete**: If the original request is fully satisfied, use the 'conversation' tool to provide a final summary to the user.
+1.  **Analyze**: Based on the history of commands and their output, determine the single next best action to get closer to completing the original request.
+2.  **Act**: Choose one tool to execute. Use 'shell_exec' for all terminal commands, including 'cd', 'ls', 'git', etc. The shell is stateful; 'cd' will change the directory for all subsequent commands.
+3.  **Recover**: If a command fails, analyze the error message in the history and decide on a recovery step.
+4.  **Converse**: If you are stuck, need more information, or have completed the task, use the 'conversation' tool to communicate with the user.
 
-Respond ONLY with a single, valid JSON object in the format: {"tool": "<tool_name>", "args": ["<arg1>"]}.`, originalRequest, currentWorkingDirectory, turnHistory, toolDescriptions.String())
+Respond ONLY with a single, valid JSON object in the format: {"tool": "<tool_name>", "args": ["<arg1>"]}.`, originalRequest, turnHistory, toolDescriptions.String())
 }
 
 // summarize creates a concise summary of a tool's execution for the agent's history.

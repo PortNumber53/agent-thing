@@ -1,9 +1,6 @@
 package tools
 
-import (
-	"agent-thing/internal/docker"
-	"fmt"
-)
+import "fmt"
 
 // FileListTool is a tool for listing files in a directory.
 type FileListTool struct{}
@@ -26,5 +23,7 @@ func (fl *FileListTool) Execute(args ...string) (string, error) {
 	}
 
 	command := fmt.Sprintf("ls -la %s", path)
-	return docker.Exec(command)
+	// Delegate to the ShellTool to ensure it runs in the persistent shell
+	shellTool := &ShellTool{}
+	return shellTool.Execute(command)
 }

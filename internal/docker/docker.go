@@ -3,19 +3,28 @@ package docker
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"strings"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/stdcopy"
 )
 
 const ContainerName = "dev-environment"
 
-var cli *client.Client
-var ctx context.Context
+var (
+	cli       *client.Client
+	ctx       context.Context
+	shellConn *types.HijackedResponse
+)
+
+const EndOfCommandMarker = "END_OF_COMMAND_MARKER_e5d5a7b8-b2e0-4c0f-83b3-2f1b6d7a3b7d"
+
 
 // Init initializes the Docker client.
 func Init() error {
@@ -54,6 +63,12 @@ func StartContainer(chrootDir string) error {
 				}
 				fmt.Println("Development container started.")
 			}
+
+			// Always start a new persistent shell for this agent instance.
+			fmt.Println("Starting persistent shell in container...")
+			if err := startPersistentShell(); err != nil {
+				return fmt.Errorf("failed to start persistent shell: %w", err)
+			}
 			return nil
 		}
 	}
@@ -86,6 +101,11 @@ func StartContainer(chrootDir string) error {
 		return fmt.Errorf("failed to start container: %w", err)
 	}
 
+	fmt.Println("Starting persistent shell in container...")
+	if err := startPersistentShell(); err != nil {
+		return fmt.Errorf("failed to start persistent shell: %w", err)
+	}
+
 	// Automatically configure git
 	fmt.Println("Configuring git in development container...")
 	cmdGit := "mkdir -p ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts"
@@ -94,47 +114,99 @@ func StartContainer(chrootDir string) error {
 		fmt.Printf("Warning: Failed to automatically configure git: %v\n", err)
 	}
 
-	fmt.Println("Development container started.")
+	fmt.Println("Development container and persistent shell started.")
 	return nil
 }
 
-// Exec runs a command inside the Docker container.
-func Exec(command string) (string, error) {
+// startPersistentShell starts a long-running interactive shell inside the container.
+func startPersistentShell() error {
 	execConfig := container.ExecOptions{
-		Cmd:          []string{"/bin/bash", "-c", command},
+		Cmd:          []string{"/bin/bash"},
 		AttachStdout: true,
 		AttachStderr: true,
+		AttachStdin:  true,
 		User:         "developer",
 	}
 
 	execID, err := cli.ContainerExecCreate(ctx, ContainerName, execConfig)
 	if err != nil {
-		return "", fmt.Errorf("failed to create exec config: %w", err)
+		return fmt.Errorf("failed to create persistent shell exec: %w", err)
 	}
 
-	resp, err := cli.ContainerExecAttach(ctx, execID.ID, container.ExecAttachOptions{})
+	// Use a pointer for shellConn
+	conn, err := cli.ContainerExecAttach(ctx, execID.ID, container.ExecAttachOptions{})
 	if err != nil {
-		return "", fmt.Errorf("failed to attach to exec: %w", err)
+		return fmt.Errorf("failed to attach to persistent shell: %w", err)
 	}
-	defer resp.Close()
+	shellConn = &conn
 
-	var outBuf, errBuf bytes.Buffer
-	_, err = stdcopy.StdCopy(&outBuf, &errBuf, resp.Reader)
+	return nil
+}
+
+// Exec runs a command in the persistent shell.
+func Exec(command string) (string, error) {
+	if shellConn == nil || shellConn.Conn == nil {
+		return "", fmt.Errorf("no persistent shell available")
+	}
+
+	// We send the command to stderr so it doesn't pollute stdout. The marker is also sent to stderr.
+	fullCommand := fmt.Sprintf("%s; echo -n '%s' $? >&2\n", command, EndOfCommandMarker)
+	_, err := shellConn.Conn.Write([]byte(fullCommand))
 	if err != nil {
-		return "", fmt.Errorf("failed to copy output from exec: %w", err)
+		return "", fmt.Errorf("failed to write to shell stdin: %w", err)
 	}
 
-	// Check the exit code
-	inspect, err := cli.ContainerExecInspect(ctx, execID.ID)
-	if err != nil {
-		return "", fmt.Errorf("failed to inspect exec: %w", err)
+	var stdout, stderr bytes.Buffer
+	header := make([]byte, 8)
+	for {
+		// Read the 8-byte header
+		_, err := io.ReadFull(shellConn.Reader, header)
+		if err != nil {
+			return "", fmt.Errorf("failed to read stream header: %w", err)
+		}
+
+		// Get the payload size
+		size := binary.BigEndian.Uint32(header[4:])
+
+		// Read the payload
+		payload := make([]byte, size)
+		_, err = io.ReadFull(shellConn.Reader, payload)
+		if err != nil {
+			return "", fmt.Errorf("failed to read stream payload: %w", err)
+		}
+
+		// Direct the payload to the correct buffer
+		if header[0] == 1 { // stdout
+			stdout.Write(payload)
+		} else { // stderr
+			stderr.Write(payload)
+		}
+
+		// Check for our end marker in the stderr stream
+		if strings.Contains(stderr.String(), EndOfCommandMarker) {
+			break
+		}
 	}
 
-	if inspect.ExitCode != 0 {
-		return "", fmt.Errorf("command exited with non-zero status %d: %s", inspect.ExitCode, errBuf.String())
+	stderrStr := stderr.String()
+	markerIndex := strings.Index(stderrStr, EndOfCommandMarker)
+	if markerIndex == -1 {
+		return stdout.String(), fmt.Errorf("could not find end of command marker in stderr")
 	}
 
-	return outBuf.String(), nil
+	markerLine := stderrStr[markerIndex:]
+	parts := strings.Split(strings.TrimSpace(markerLine), " ")
+	if len(parts) < 2 {
+		return stdout.String(), fmt.Errorf("could not parse exit code from shell output")
+	}
+	exitCodeStr := parts[1]
+
+	if exitCodeStr != "0" {
+		errorOutput := strings.TrimSpace(stderrStr[:markerIndex])
+		return stdout.String(), fmt.Errorf("command exited with non-zero status %s: %s", exitCodeStr, errorOutput)
+	}
+
+	return stdout.String(), nil
 }
 
 // StopContainer stops the development container.
