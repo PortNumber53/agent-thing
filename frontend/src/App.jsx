@@ -105,6 +105,10 @@ function App() {
                 onDownloadPrivate={() => sendToolCommand('file_read', ['/app/id_ed25519', 'for', 'download'])}
                 onCopyPublic={() => sendToolCommand('file_read', ['/app/id_ed25519.pub', 'for', 'copy'])}
                 onCopyPrivate={() => sendToolCommand('file_read', ['/app/id_ed25519', 'for', 'copy'])}
+                onContainerStart={() => sendToolCommand('docker_start', [])}
+                onContainerStop={() => sendToolCommand('docker_stop', [])}
+                onContainerRebuild={() => sendToolCommand('docker_rebuild', [])}
+                onContainerStatus={() => sendToolCommand('docker_status', [])}
             />
             <MessageList messages={messages} />
             <ChatInput onSend={sendAgentCommand} />

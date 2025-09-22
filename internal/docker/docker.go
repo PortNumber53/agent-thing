@@ -117,10 +117,42 @@ func Exec(command string) (string, error) {
 	return outBuf.String(), nil
 }
 
-// StopContainer stops and removes the development container.
+// StopContainer stops the development container.
 func StopContainer() error {
 	fmt.Println("Stopping development container...")
-	// Implementation to stop and remove container using SDK
-	// Placeholder for now
+	if err := cli.ContainerStop(ctx, ContainerName, container.StopOptions{}); err != nil {
+		return fmt.Errorf("failed to stop container: %w", err)
+	}
+	fmt.Println("Development container stopped.")
 	return nil
+}
+
+// RebuildContainer stops, removes, and rebuilds the development container.
+func RebuildContainer(chrootDir string) error {
+	if err := StopContainer(); err != nil {
+		return err
+	}
+	if err := cli.ContainerRemove(ctx, ContainerName, container.RemoveOptions{}); err != nil {
+		// Ignore 'no such container' errors
+		if !client.IsErrNotFound(err) {
+			return fmt.Errorf("failed to remove container: %w", err)
+		}
+	}
+	return StartContainer(chrootDir)
+}
+
+// ContainerStatus gets the status of the development container.
+func ContainerStatus() (string, error) {
+	containers, err := cli.ContainerList(ctx, container.ListOptions{All: true})
+	if err != nil {
+		return "", fmt.Errorf("failed to list containers: %w", err)
+	}
+
+	for _, cont := range containers {
+		if cont.Names[0] == "/"+ContainerName {
+			return fmt.Sprintf("Container '%s' is %s", ContainerName, cont.State), nil
+		}
+	}
+
+	return fmt.Sprintf("Container '%s' not found.", ContainerName), nil
 }

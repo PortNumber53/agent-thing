@@ -45,6 +45,10 @@ func main() {
 	toolSet.Add(&tools.FileWriteTool{})
 	toolSet.Add(&tools.FileListTool{})
 	toolSet.Add(&tools.SSHKeyGenTool{})
+	toolSet.Add(&tools.DockerStartTool{})
+	toolSet.Add(&tools.DockerStopTool{})
+	toolSet.Add(&tools.DockerRebuildTool{})
+	toolSet.Add(&tools.DockerStatusTool{})
 
 	// Initialize the LLM client
 	llmClient, err = llm.NewClient(cfg.GeminiAPIKey, cfg.GeminiModel)

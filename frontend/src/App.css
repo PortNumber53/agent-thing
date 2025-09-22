@@ -1,21 +1,21 @@
+/* Global and Body Styles */
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     margin: 0;
+    height: 100vh;
+    background-color: #f0f2f5;
+}
+
+/* Main App Container - Flexbox Layout */
+.App {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    background-color: #f0f2f5;
-    padding-top: 50px; /* Space for top toolbar */
-    padding-bottom: 70px; /* Space for status bar and form */
-    box-sizing: border-box;
 }
 
+/* Top Toolbar */
 #top-toolbar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    background: #f8f9fa;
+    background: #333;
     border-bottom: 1px solid #ddd;
     padding: 8px;
     display: flex;
@@ -23,6 +23,7 @@ body {
     gap: 10px;
     box-sizing: border-box;
     z-index: 100;
+    flex-shrink: 0; /* Prevent shrinking */
 }
 
 #top-toolbar button {
@@ -38,13 +39,13 @@ body {
     background-color: #e9ecef;
 }
 
+/* Messages Area */
 #messages {
     list-style-type: none;
     margin: 0;
     padding: 20px;
-    padding-bottom: 60px; /* Space for the input form */
-    overflow-y: auto;
-    flex-grow: 1;
+    overflow-y: auto; /* Enable scrolling within this container */
+    flex-grow: 1; /* Allow this area to fill available space */
 }
 
 #messages li {
@@ -67,23 +68,25 @@ body {
     margin-right: auto;
 }
 
+/* Input Form */
 form {
     display: flex;
     padding: 10px;
     background: white;
     border-top: 1px solid #ddd;
-    position: fixed;
-    bottom: 30px; /* Sit on top of status bar */
-    width: 100%;
     box-sizing: border-box;
+    flex-shrink: 0; /* Prevent shrinking */
 }
 
-input {
+input, textarea#input {
     border: 1px solid #ddd;
     padding: 10px;
     flex-grow: 1;
     border-radius: 18px;
     font-size: 16px;
+    font-family: inherit; /* Ensure textarea uses the same font */
+    line-height: 1.4;
+    overflow-y: auto; /* Add scrollbar if max-height is reached */
 }
 
 #form button {
@@ -101,15 +104,13 @@ input {
     background: #0073e6;
 }
 
+/* Status Bar */
 #status-bar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
     background-color: #333;
     color: #ccc;
     height: 30px;
     line-height: 30px;
     font-size: 0.8em;
     text-align: center;
+    flex-shrink: 0; /* Prevent shrinking */
 }

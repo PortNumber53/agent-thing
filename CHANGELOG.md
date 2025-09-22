@@ -4,9 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Container Management UI**: Added a new dropdown menu to the top toolbar for managing the Docker container, with options to start, stop, rebuild, and check the status of the container.
+
 ### Changed
 
 - **Development Environment**: Added `vim`, `nano`, `make`, `cmake`, `python`, `nodejs-lts-iron`, `npm`, `gdb`, `curl`, and `wget` to the `Dockerfile` to provide a more complete development environment for the agent.
+- **Toolbar UI**: Refactored the top toolbar to categorize buttons into dropdown menus, improving UI organization.
 
 ## [0.2.0] - 2025-09-21
 
