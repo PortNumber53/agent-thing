@@ -18,6 +18,7 @@ type Config struct {
 	GeminiAPIKey   string
 	ChrootDir      string
 	GeminiModel    string
+	GeminiRPM      int
 }
 
 // LoadConfig reads the configuration from the given path.
@@ -37,6 +38,7 @@ func LoadConfig(path string) (*Config, error) {
 		GeminiAPIKey: cfg.Section("default").Key("GEMINI_API_KEY").String(),
 		ChrootDir:    cfg.Section("default").Key("CHROOT_DIR").String(),
 		GeminiModel:  cfg.Section("default").Key("GEMINI_MODEL").String(),
+		GeminiRPM:    cfg.Section("default").Key("GEMINI_RPM").MustInt(10), // Default to 10 RPM if not set
 	}
 
 	if config.GeminiAPIKey == "" {

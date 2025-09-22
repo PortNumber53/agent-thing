@@ -54,6 +54,7 @@ body {
     border-radius: 20px;
     max-width: 70%;
     word-wrap: break-word;
+    white-space: pre-wrap; /* Render line breaks correctly */
 }
 
 .user-message {

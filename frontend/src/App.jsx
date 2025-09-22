@@ -101,10 +101,10 @@ function App() {
         <div className="App">
             <TopToolbar
                 onGenerate={() => sendToolCommand('ssh_key_gen', [])}
-                onDownloadPublic={() => sendToolCommand('file_read', ['/app/id_ed25519.pub', 'for', 'download'])}
-                onDownloadPrivate={() => sendToolCommand('file_read', ['/app/id_ed25519', 'for', 'download'])}
-                onCopyPublic={() => sendToolCommand('file_read', ['/app/id_ed25519.pub', 'for', 'copy'])}
-                onCopyPrivate={() => sendToolCommand('file_read', ['/app/id_ed25519', 'for', 'copy'])}
+                onDownloadPublic={() => sendToolCommand('file_read', ['/home/developer/.ssh/id_ed25519.pub', 'for', 'download'])}
+                onDownloadPrivate={() => sendToolCommand('file_read', ['/home/developer/.ssh/id_ed25519', 'for', 'download'])}
+                onCopyPublic={() => sendToolCommand('file_read', ['/home/developer/.ssh/id_ed25519.pub', 'for', 'copy'])}
+                onCopyPrivate={() => sendToolCommand('file_read', ['/home/developer/.ssh/id_ed25519', 'for', 'copy'])}
                 onContainerStart={() => sendToolCommand('docker_start', [])}
                 onContainerStop={() => sendToolCommand('docker_stop', [])}
                 onContainerRebuild={() => sendToolCommand('docker_rebuild', [])}

@@ -6,12 +6,22 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **Autonomous Execution Loop**: Implemented a new `autonomous_execution` tool that allows the agent to perform complex, multi-step tasks without user intervention for each step.
+- **Stateful Memory**: The autonomous loop now maintains a stateful context, including the current working directory and a running history of actions taken. This provides the agent with a short-term memory, preventing repetitive loops and enabling more intelligent decision-making.
+- **Conversation Tool**: Added a `conversation` tool to allow the agent to explicitly ask the user for information when it gets stuck or requires input (e.g., credentials, URLs).
+- **API Rate Limiting**: Implemented a rate limiter for all calls to the Gemini API to prevent `429 Quota Exceeded` errors and ensure stable operation.
 - **Container Management UI**: Added a new dropdown menu to the top toolbar for managing the Docker container, with options to start, stop, rebuild, and check the status of the container.
 
 ### Changed
 
 - **Development Environment**: Added `vim`, `nano`, `make`, `cmake`, `python`, `nodejs-lts-iron`, `npm`, `gdb`, `curl`, and `wget` to the `Dockerfile` to provide a more complete development environment for the agent.
 - **Toolbar UI**: Refactored the top toolbar to categorize buttons into dropdown menus, improving UI organization.
+
+### Fixed
+
+- **Agent Logic**: Corrected several critical bugs in the agent's reasoning, including a missing `conversation` tool, incorrect toolset visibility in the autonomous loop, and stateless, repetitive behavior.
+- **Git Integration**: Automated the process of adding GitHub's SSH key to the container's `known_hosts` file, removing the confusing and error-prone `setup_git` tool.
+- **UI Formatting**: Fixed a bug in the frontend CSS that was preventing line breaks in the agent's output from being rendered correctly.
 
 ## [0.2.0] - 2025-09-21
 
