@@ -4,7 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"strings"
+	"time"
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/lib/pq"
 
 	"agent-thing/internal/config"
 	"agent-thing/internal/docker"
@@ -33,9 +40,20 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// Initialize Docker client
+	// Check for the 'migrate' subcommand
+	if len(os.Args) > 1 && os.Args[1] == "migrate" {
+		handleMigration(cfg)
+		return
+	}
+
+	// --- Normal Agent Startup ---
+
+	// Initialize Docker client and start container
 	if err := docker.Init(); err != nil {
 		log.Fatalf("Failed to initialize Docker client: %v", err)
+	}
+	if err := docker.StartContainer(cfg.ChrootDir); err != nil {
+		log.Fatalf("Failed to start Docker container: %v", err)
 	}
 
 	// Initialize the LLM client
@@ -63,14 +81,75 @@ func main() {
 	autoTool.ToolSet = toolSet
 	toolSet.Add(autoTool)
 
-	// Start the Docker container
-	if err := docker.StartContainer(cfg.ChrootDir); err != nil {
-		log.Fatalf("Failed to start Docker container: %v", err)
-	}
-
 	// Start the web server
 	srv := server.NewServer(runAgentLogic)
 	srv.Start(":8080")
+}
+
+func handleMigration(cfg *config.Config) {
+	if len(os.Args) < 3 {
+		log.Fatalf("Usage: go run ./agent.go migrate <command> [arguments]")
+	}
+
+	command := os.Args[2]
+
+	if command == "create" {
+		if len(os.Args) < 4 {
+			log.Fatalf("Usage: go run ./agent.go migrate create <name>")
+		}
+		name := os.Args[3]
+		timestamp := time.Now().Format("20060102150405")
+		upFile := fmt.Sprintf("db/migrations/%s_%s.up.sql", timestamp, name)
+		downFile := fmt.Sprintf("db/migrations/%s_%s.down.sql", timestamp, name)
+
+		if err := os.WriteFile(upFile, []byte("-- up migration here"), 0644); err != nil {
+			log.Fatalf("Failed to create up migration file: %v", err)
+		}
+		if err := os.WriteFile(downFile, []byte("-- down migration here"), 0644); err != nil {
+			log.Fatalf("Failed to create down migration file: %v", err)
+		}
+
+		fmt.Printf("Created migration files:\n%s\n%s\n", upFile, downFile)
+		return
+	}
+
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		cfg.DBUser,
+		cfg.DBPassword,
+		cfg.DBHost,
+		cfg.DBPort,
+		cfg.DBName,
+		cfg.DBSslMode,
+	)
+
+	m, err := migrate.New(
+		"file://db/migrations",
+		dsn,
+	)
+	if err != nil {
+		log.Fatalf("Failed to create migrate instance: %v", err)
+	}
+
+	switch command {
+	case "up":
+		if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+			log.Fatalf("An error occurred while migrating up: %v", err)
+		}
+		fmt.Println("Migrations applied successfully.")
+	case "down":
+		if err := m.Down(); err != nil && err != migrate.ErrNoChange {
+			log.Fatalf("An error occurred while migrating down: %v", err)
+		}
+		fmt.Println("Migrations rolled back successfully.")
+	case "status":
+		version, dirty, err := m.Version()
+		if err != nil {
+			log.Fatalf("Failed to get migration status: %v", err)
+		}
+		fmt.Printf("Version: %d, Dirty: %v\n", version, dirty)
+	default:
+		log.Fatalf("Unknown command: %s", command)
+	}
 }
 
 // handleConnection is the core logic for a single agent-user session over WebSocket.
