@@ -1,5 +1,5 @@
-# Arch Linux based development environment
-FROM archlinux:latest
+# Arch Linux based development environment (force amd64 for Apple Silicon compatibility)
+FROM --platform=linux/amd64 archlinux:latest
 
 # Update the system and install base development tools
 RUN pacman -Syu --noconfirm && \
@@ -22,7 +22,7 @@ RUN pacman -Syu --noconfirm && \
 
 # Install golang-migrate CLI for database migrations
 RUN curl -L https://github.com/golang-migrate/migrate/releases/download/v4.19.0/migrate.linux-amd64.tar.gz | tar -xvz && \
-    mv migrate.linux-amd64 /usr/local/bin/migrate && \
+    mv migrate /usr/local/bin/migrate && \
     chmod +x /usr/local/bin/migrate
 
 # Create a non-root user for development
