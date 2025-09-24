@@ -1,7 +1,7 @@
 # Makefile
 
 # Load database configuration from .ini file
-CONFIG_FILE=/home/grimlock/.config/agent-thing/config.ini
+CONFIG_FILE=$(HOME)/.config/agent-thing/config.ini
 DB_USER := $(shell awk -F'=' '/^DB_USER/ {gsub(/[ \t]/, "", $$2); print $$2}' $(CONFIG_FILE))
 DB_PASSWORD := $(shell awk -F'=' '/^DB_PASSWORD/ {gsub(/[ \t]/, "", $$2); print $$2}' $(CONFIG_FILE))
 DB_HOST := $(shell awk -F'=' '/^DB_HOST/ {gsub(/[ \t]/, "", $$2); print $$2}' $(CONFIG_FILE))

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -35,7 +36,12 @@ var (
 
 func main() {
 	// Load configuration
-	cfg, err := config.LoadConfig("/home/grimlock/.config/agent-thing/config.ini")
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		log.Fatalf("Failed to determine user home directory: %v", err)
+	}
+	configPath := filepath.Join(homeDir, ".config", "agent-thing", "config.ini")
+	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
