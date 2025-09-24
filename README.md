@@ -49,6 +49,7 @@ CHROOT_DIR=/tmp/agent-thing-chroot
 ```
 
 Notes:
+
 - The application reads this exact path at startup.
 - On first run, the agent will `sudo chown -Rv 1000:1000` the `CHROOT_DIR` to match the container user.
 
@@ -59,6 +60,7 @@ go run agent.go
 ```
 
 This will:
+
 - Build the Docker image (first run may take a while)
 - Create/start the `dev-environment` container
 - Start the WebSocket server on `http://localhost:8080/ws`
@@ -75,7 +77,7 @@ Open the URL printed by Vite (typically `http://localhost:5173`). The Vite dev s
 
 ## Database migrations
 
-You can use the built-in migration subcommands from the Go app:
+Use the built-in migration subcommands from the Go app:
 
 ```bash
 # Create timestamped up/down SQL files under db/migrations
@@ -87,17 +89,11 @@ go run ./agent.go migrate down
 go run ./agent.go migrate status
 ```
 
-Or via the Makefile (reads DB settings from `$(HOME)/.config/agent-thing/config.ini`):
-
-```bash
-make migrateup
-make migratedown
-make force
-```
 
 ## Tools available (agent side)
 
 Implemented in `internal/tools/` and available through chat or toolbar buttons:
+
 - conversation: plain text responses
 - shell: run shell commands in the persistent container session
 - file_read, file_write, file_list: file utilities in `/home/developer`
