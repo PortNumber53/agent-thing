@@ -20,10 +20,6 @@ RUN pacman -Syu --noconfirm && \
         curl \
         wget
 
-# Install golang-migrate CLI for database migrations
-RUN curl -L https://github.com/golang-migrate/migrate/releases/download/v4.19.0/migrate.linux-amd64.tar.gz | tar -xvz && \
-    mv migrate /usr/local/bin/migrate && \
-    chmod +x /usr/local/bin/migrate
 
 # Create a non-root user for development
 RUN useradd -m -G wheel -s /bin/bash developer && \
