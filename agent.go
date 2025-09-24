@@ -108,10 +108,10 @@ func handleMigration(cfg *config.Config) {
 		upFile := fmt.Sprintf("db/migrations/%s_%s.up.sql", timestamp, name)
 		downFile := fmt.Sprintf("db/migrations/%s_%s.down.sql", timestamp, name)
 
-		if err := os.WriteFile(upFile, []byte("-- up migration here"), 0644); err != nil {
+		if err := os.WriteFile(upFile, []byte("-- up migration here"), 0o644); err != nil {
 			log.Fatalf("Failed to create up migration file: %v", err)
 		}
-		if err := os.WriteFile(downFile, []byte("-- down migration here"), 0644); err != nil {
+		if err := os.WriteFile(downFile, []byte("-- down migration here"), 0o644); err != nil {
 			log.Fatalf("Failed to create down migration file: %v", err)
 		}
 
