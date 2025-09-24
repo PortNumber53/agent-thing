@@ -113,7 +113,7 @@ func handleMigration(cfg *config.Config) {
         if err := os.WriteFile(upFile, []byte("-- up migration here"), defaultMigrationFileMode); err != nil {
 			log.Fatalf("Failed to create up migration file: %v", err)
 		}
-        if err := os.WriteFile(downFile, []byte("-- down migration here"), defaultMigrationFileMode); err != nil {
+		if err := os.WriteFile(downFile, []byte("-- down migration here"), defaultMigrationFileMode); err != nil {
 			log.Fatalf("Failed to create down migration file: %v", err)
 		}
 
