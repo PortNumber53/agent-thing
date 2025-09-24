@@ -118,3 +118,7 @@ Implemented in `internal/tools/` and available through chat or toolbar buttons:
 ## License
 
 Proprietary – All rights reserved. See `LICENSE` for details. Viewing, cloning, and building are permitted for evaluation and contribution only; any other use requires prior written permission.
+
+## Contributing
+
+Contributions are welcome under our contributor assignment terms. By submitting a pull request, you represent you have the right to contribute and you assign (or where assignment is not permitted, you grant an exclusive license for) your contribution to PortNumber53, as described in `LICENSE`. If you require a separate CLA, contact us at `legal@portnumber53.com`.
