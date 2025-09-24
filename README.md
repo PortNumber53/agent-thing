@@ -89,7 +89,6 @@ go run ./agent.go migrate down
 go run ./agent.go migrate status
 ```
 
-
 ## Tools available (agent side)
 
 Implemented in `internal/tools/` and available through chat or toolbar buttons:
@@ -118,4 +117,4 @@ Implemented in `internal/tools/` and available through chat or toolbar buttons:
 
 ## License
 
-MIT (or project’s chosen license)
+Proprietary – All rights reserved. See `LICENSE` for details. Viewing, cloning, and building are permitted for evaluation and contribution only; any other use requires prior written permission.
