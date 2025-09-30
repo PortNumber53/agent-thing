@@ -76,11 +76,12 @@ pipeline {
             }
         }
 
-        stage("Deploy to ${env.REMOTE_HOST}") {
+        stage('Deploy') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: env.SSH_CREDENTIALS_ID, keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                     sh '''
                         set -euo pipefail
+                        echo "Deploying to ${REMOTE_HOST}"
                         SSH_CMD="ssh -i ${SSH_KEY}"
                         RSYNC_CMD="rsync -az --delete -e \"${SSH_CMD}\""
 
