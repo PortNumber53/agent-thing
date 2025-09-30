@@ -1,0 +1,17 @@
+[Unit]
+Description=Agent Thing Go backend
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=agentthing
+Group=agentthing
+WorkingDirectory=/var/www/vhosts/agent-thing/current
+ExecStart=/var/www/vhosts/agent-thing/current/agent-thing
+Restart=on-failure
+RestartSec=5
+EnvironmentFile=-/etc/agent-thing/config.env
+
+[Install]
+WantedBy=multi-user.target

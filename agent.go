@@ -90,8 +90,25 @@ func main() {
 	toolSet.Add(autoTool)
 
 	// Start the web server
+	listenAddr := getListenAddress()
 	srv := server.NewServer(runAgentLogic)
-	srv.Start(":8080")
+	srv.Start(listenAddr)
+}
+
+func getListenAddress() string {
+	defaultAddr := ":8080"
+	if envAddr := os.Getenv("AGENT_THING_LISTEN_ADDR"); envAddr != "" {
+		return envAddr
+	}
+
+	if port := strings.TrimSpace(os.Getenv("PORT")); port != "" {
+		if strings.HasPrefix(port, ":") {
+			return port
+		}
+		return ":" + port
+	}
+
+	return defaultAddr
 }
 
 func handleMigration(cfg *config.Config) {
@@ -110,7 +127,7 @@ func handleMigration(cfg *config.Config) {
 		upFile := fmt.Sprintf("db/migrations/%s_%s.up.sql", timestamp, name)
 		downFile := fmt.Sprintf("db/migrations/%s_%s.down.sql", timestamp, name)
 
-        if err := os.WriteFile(upFile, []byte("-- up migration here"), defaultMigrationFileMode); err != nil {
+		if err := os.WriteFile(upFile, []byte("-- up migration here"), defaultMigrationFileMode); err != nil {
 			log.Fatalf("Failed to create up migration file: %v", err)
 		}
 		if err := os.WriteFile(downFile, []byte("-- down migration here"), defaultMigrationFileMode); err != nil {

@@ -5,7 +5,8 @@ An AI-powered developer agent with a Go backend, a React/Vite frontend, and a Do
 ## Architecture
 
 - Backend (Go):
-  - Web server on `:8080` with WebSocket endpoint at `/ws`.
+  - Web server on `:8080` by default (override with `AGENT_THING_LISTEN_ADDR` or `PORT`) with WebSocket endpoint at `/ws`.
+  - Exposes a JSON health check at `/health` for load balancers and deployment probes.
   - Serves the frontend during development.
   - Manages a long-lived Docker container to execute tools in a controlled environment.
   - Integrates with Google Gemini via `internal/llm` with per-minute rate limiting.
@@ -46,6 +47,9 @@ GEMINI_RPM=10
 
 # Host directory mounted into the dev container as /home/developer
 CHROOT_DIR=/tmp/agent-thing-chroot
+
+# CORS (comma-separated list; leave blank to allow all)
+AGENT_THING_ALLOWED_ORIGINS=https://agent.dev.portnumber53.com
 ```
 
 Notes:
@@ -114,6 +118,11 @@ Implemented in `internal/tools/` and available through chat or toolbar buttons:
 
 - The WebSocket endpoint is `/ws`; the frontend connects to `ws://<host>/ws`.
 - The backend serves static files from `./frontend/` for convenience, but during development use Vite (`npm run dev`).
+
+## Deployment
+
+- Refer to `deploy/README.md` for details on the Jenkins pipeline, systemd unit, and nginx routing used in production.
+- The frontend (`frontend/`) builds with Vite and deploys to Cloudflare Workers/Pages. Set `VITE_BACKEND_HOST` (for example `agent.dev.portnumber53.com`) so the SPA reaches the Go backend and WebSocket endpoint.
 
 ## License
 
