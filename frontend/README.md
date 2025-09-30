@@ -20,6 +20,7 @@ VITE_BACKEND_HOST=agent.dev.portnumber53.com
 ```bash
 npm run build     # outputs to dist/
 npm run deploy    # builds and runs wrangler deploy
+npm run cf-dev    # wrangler dev --config wrangler.jsonc
 ```
 
 The Cloudflare deployment reads `VITE_BACKEND_HOST` from `wrangler.jsonc` vars (defaults to `agent.dev.portnumber53.com`). Update that value per environment so the SPA talks to the correct backend.
