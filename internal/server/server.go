@@ -22,13 +22,7 @@ type Server struct {
 // NewServer creates a new web server.
 func NewServer(agentLogic func(*websocket.Conn)) *Server {
 	srv := &Server{
-		router: mux.NewRouter(),
-		upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool {
-				// Allow all connections for development.
-				return true
-			},
-		},
+		router:          mux.NewRouter(),
 		AgentLogic:      agentLogic,
 		allowedOrigins:  make(map[string]struct{}),
 		allowAllOrigins: true,
@@ -42,6 +36,16 @@ func NewServer(agentLogic func(*websocket.Conn)) *Server {
 				srv.allowedOrigins[trimmed] = struct{}{}
 			}
 		}
+	}
+
+	srv.upgrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			if origin == "" {
+				return true
+			}
+			return srv.isOriginAllowed(origin)
+		},
 	}
 
 	return srv
