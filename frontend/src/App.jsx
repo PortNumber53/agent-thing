@@ -16,7 +16,8 @@ function App() {
 
     const connect = () => {
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        const backendHost = import.meta.env.VITE_BACKEND_HOST || window.location.host;
+        const backendHost = import.meta.env.VITE_BACKEND_HOST
+            || (window.location.hostname === 'localhost' ? window.location.host : 'agent.dev.portnumber53.com');
         ws.current = new WebSocket(`${protocol}://${backendHost}/ws`);
 
         ws.current.onopen = () => {
