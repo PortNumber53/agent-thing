@@ -20,6 +20,7 @@ The top-level `Jenkinsfile` performs the following stages:
 - Configure an SSH credential (`pinky-ssh-key` by default) granting password-less sudo access on `pinky`
 - Adjust the `REMOTE_USER`, `REMOTE_OWNER`, and `SSH_CREDENTIALS_ID` values in the `Jenkinsfile` to match your environment
 - Ensure `rsync` and `systemctl` are available on `pinky`
+- Store the deployment SSH key in Jenkins credentials (`pinky-ssh-key` by default) so the pipeline can wrap `ssh`/`rsync` with `withCredentials`
 
 ## Systemd service
 

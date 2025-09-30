@@ -7,6 +7,7 @@ pipeline {
         REMOTE_USER = 'grimlock'
         REMOTE_OWNER = 'grimlock'
         REMOTE_BASE_DIR = '/var/www/vhosts'
+        SSH_CREDENTIALS_ID = 'pinky-ssh-key'
     }
 
     options {
@@ -72,19 +73,24 @@ pipeline {
 
         stage('Deploy to pinky') {
             steps {
-                sh '''
-                    set -euo pipefail
-                    ssh ${REMOTE_USER}@${REMOTE_HOST} "sudo mkdir -p ${REMOTE_BASE_DIR}/${PROJECT_NAME}"
-                    ssh ${REMOTE_USER}@${REMOTE_HOST} "rm -rf ${REMOTE_TEMP_DIR} && mkdir -p ${REMOTE_TEMP_DIR}"
-                    rsync -az --delete build/release/ ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_TEMP_DIR}/
-                    ssh ${REMOTE_USER}@${REMOTE_HOST} "sudo mkdir -p ${REMOTE_RELEASE_DIR}/public"
-                    ssh ${REMOTE_USER}@${REMOTE_HOST} "sudo rsync -a ${REMOTE_TEMP_DIR}/ ${REMOTE_RELEASE_DIR}/"
-                    ssh ${REMOTE_USER}@${REMOTE_HOST} "sudo rm -rf ${REMOTE_TEMP_DIR}"
-                    ssh ${REMOTE_USER}@${REMOTE_HOST} "sudo chown -R ${REMOTE_OWNER}:${REMOTE_OWNER} ${REMOTE_RELEASE_DIR}"
-                    ssh ${REMOTE_USER}@${REMOTE_HOST} "sudo ln -sfn ${REMOTE_RELEASE_DIR} ${REMOTE_BASE_DIR}/${PROJECT_NAME}/current"
-                    ssh ${REMOTE_USER}@${REMOTE_HOST} "sudo systemctl daemon-reload"
-                    ssh ${REMOTE_USER}@${REMOTE_HOST} "sudo systemctl restart agent-thing.service"
-                '''
+                withCredentials([sshUserPrivateKey(credentialsId: env.SSH_CREDENTIALS_ID, keyFileVariable: 'SSH_KEY')]) {
+                    sh '''
+                        set -euo pipefail
+                        SSH_CMD="ssh -i ${SSH_KEY}"
+                        RSYNC_CMD="rsync -az --delete -e \"${SSH_CMD}\""
+
+                        ${SSH_CMD} ${REMOTE_USER}@${REMOTE_HOST} "sudo mkdir -p ${REMOTE_BASE_DIR}/${PROJECT_NAME}"
+                        ${SSH_CMD} ${REMOTE_USER}@${REMOTE_HOST} "rm -rf ${REMOTE_TEMP_DIR} && mkdir -p ${REMOTE_TEMP_DIR}"
+                        ${RSYNC_CMD} build/release/ ${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_TEMP_DIR}/
+                        ${SSH_CMD} ${REMOTE_USER}@${REMOTE_HOST} "sudo mkdir -p ${REMOTE_RELEASE_DIR}/public"
+                        ${SSH_CMD} ${REMOTE_USER}@${REMOTE_HOST} "sudo rsync -a ${REMOTE_TEMP_DIR}/ ${REMOTE_RELEASE_DIR}/"
+                        ${SSH_CMD} ${REMOTE_USER}@${REMOTE_HOST} "sudo rm -rf ${REMOTE_TEMP_DIR}"
+                        ${SSH_CMD} ${REMOTE_USER}@${REMOTE_HOST} "sudo chown -R ${REMOTE_OWNER}:${REMOTE_OWNER} ${REMOTE_RELEASE_DIR}"
+                        ${SSH_CMD} ${REMOTE_USER}@${REMOTE_HOST} "sudo ln -sfn ${REMOTE_RELEASE_DIR} ${REMOTE_BASE_DIR}/${PROJECT_NAME}/current"
+                        ${SSH_CMD} ${REMOTE_USER}@${REMOTE_HOST} "sudo systemctl daemon-reload"
+                        ${SSH_CMD} ${REMOTE_USER}@${REMOTE_HOST} "sudo systemctl restart agent-thing.service"
+                    '''
+                }
             }
         }
 
