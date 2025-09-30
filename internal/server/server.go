@@ -10,15 +10,15 @@ import (
 
 // Server manages the web server and WebSocket connections.
 type Server struct {
-	router   *mux.Router
-	upgrader websocket.Upgrader
+	router     *mux.Router
+	upgrader   websocket.Upgrader
 	AgentLogic func(*websocket.Conn)
 }
 
 // NewServer creates a new web server.
 func NewServer(agentLogic func(*websocket.Conn)) *Server {
 	return &Server{
-		router:   mux.NewRouter(),
+		router: mux.NewRouter(),
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
 				// Allow all connections for development.
@@ -34,6 +34,9 @@ func (s *Server) setupRoutes() {
 	// Handle WebSocket connections first, as PathPrefix is a catch-all.
 	s.router.HandleFunc("/ws", s.handleWebSocket)
 
+	// Lightweight health probe
+	s.router.HandleFunc("/health", s.handleHealth).Methods(http.MethodGet)
+
 	// Serve the frontend files.
 	s.router.PathPrefix("/").Handler(http.FileServer(http.Dir("./frontend/")))
 }
@@ -48,6 +51,13 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Start a new goroutine to handle the agent logic for this connection.
 	go s.AgentLogic(conn)
+}
+
+// handleHealth responds to health probes
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }
 
 // Start launches the web server.
