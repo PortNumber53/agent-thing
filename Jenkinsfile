@@ -60,6 +60,7 @@ pipeline {
                     rm -rf ${RELEASE_DIR}
                     mkdir -p ${RELEASE_DIR}/public
                     cp build/bin/agent-thing ${RELEASE_DIR}/
+                    cp Dockerfile ${RELEASE_DIR}/
                     cp -r frontend/dist/* ${RELEASE_DIR}/public/
                     mkdir -p build/packages
                     tar -C ${RELEASE_DIR} -czf ${RELEASE_TAR} .
