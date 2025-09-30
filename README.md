@@ -115,6 +115,10 @@ Implemented in `internal/tools/` and available through chat or toolbar buttons:
 - The WebSocket endpoint is `/ws`; the frontend connects to `ws://<host>/ws`.
 - The backend serves static files from `./frontend/` for convenience, but during development use Vite (`npm run dev`).
 
+## Deployment
+
+- Refer to `deploy/README.md` for details on the Jenkins pipeline, systemd unit, and nginx routing used in production.
+
 ## License
 
 Proprietary – All rights reserved. See `LICENSE` for details. Viewing, cloning, and building are permitted for evaluation and contribution only; any other use requires prior written permission.
