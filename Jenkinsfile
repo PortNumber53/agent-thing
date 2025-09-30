@@ -82,7 +82,7 @@ pipeline {
                     sh '''
                         set -euo pipefail
                         echo "Deploying to ${REMOTE_HOST}"
-                        SSH_CMD="ssh -i ${SSH_KEY}"
+                        SSH_CMD="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${SSH_KEY}"
                         RSYNC_CMD="rsync -az --delete -e \"${SSH_CMD}\""
 
                         ${SSH_CMD} ${SSH_USER}@${REMOTE_HOST} "sudo mkdir -p ${REMOTE_BASE_DIR}/${PROJECT_NAME}"
