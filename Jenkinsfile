@@ -76,7 +76,7 @@ pipeline {
             }
         }
 
-        stage('Deploy to pinky') {
+        stage("Deploy to ${env.REMOTE_HOST}") {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: env.SSH_CREDENTIALS_ID, keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER')]) {
                     sh '''
