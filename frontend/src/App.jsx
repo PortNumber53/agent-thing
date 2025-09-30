@@ -15,7 +15,9 @@ function App() {
     };
 
     const connect = () => {
-        ws.current = new WebSocket(`ws://${window.location.host}/ws`);
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const backendHost = import.meta.env.VITE_BACKEND_HOST || window.location.host;
+        ws.current = new WebSocket(`${protocol}://${backendHost}/ws`);
 
         ws.current.onopen = () => {
             setStatus('Connected to the agent.');

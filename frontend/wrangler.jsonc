@@ -12,6 +12,9 @@
 	},
 	"observability": {
 		"enabled": true
+	},
+	"vars": {
+		"VITE_BACKEND_HOST": "agent.dev.portnumber53.com"
 	}
 	/**
 	 * Smart Placement
