@@ -124,6 +124,11 @@ Implemented in `internal/tools/` and available through chat or toolbar buttons:
 - Refer to `deploy/README.md` for details on the Jenkins pipeline, systemd unit, and nginx routing used in production.
 - The frontend (`frontend/`) builds with Vite and deploys to Cloudflare Workers/Pages. Set `VITE_BACKEND_HOST` (for example `agent.dev.portnumber53.com`) so the SPA reaches the Go backend and WebSocket endpoint.
 
+## Deployment
+
+- Refer to `deploy/README.md` for details on the Jenkins pipeline, systemd unit, and nginx routing used in production.
+- The frontend (`frontend/`) builds with Vite and deploys to Cloudflare Workers/Pages. Set `VITE_BACKEND_HOST` (for example `agent.dev.portnumber53.com`) so the SPA reaches the Go backend and WebSocket endpoint.
+
 ## License
 
 Proprietary – All rights reserved. See `LICENSE` for details. Viewing, cloning, and building are permitted for evaluation and contribution only; any other use requires prior written permission.
