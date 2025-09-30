@@ -17,10 +17,10 @@ The top-level `Jenkinsfile` performs the following stages:
 ### Jenkins configuration
 
 - Install Go 1.21+, Node.js 20+, `npm`, `rsync`, and `curl` on the Jenkins agent
-- Configure an SSH credential (`pinky-ssh-key` by default) granting password-less sudo access on `pinky`
+- Configure an SSH credential (`brain-jenkins-private-key` by default) granting password-less sudo access on `pinky`
 - Adjust the `SSH_CREDENTIALS_ID` value in the `Jenkinsfile` (or override the job parameters) to match your environment
 - Ensure `rsync` and `systemctl` are available on `pinky`
-- Store the deployment SSH key in Jenkins credentials (`pinky-ssh-key` by default) so the pipeline can wrap `ssh`/`rsync` with `withCredentials`
+- Store the deployment SSH key in Jenkins credentials (`brain-jenkins-private-key` by default) so the pipeline can wrap `ssh`/`rsync` with `withCredentials`
 - Use the Jenkins job parameters (`REMOTE_HOST`, `REMOTE_BASE_DIR`, `REMOTE_OWNER`) to point the pipeline at the correct host and directory without modifying the Jenkinsfile
 
 ## Systemd service

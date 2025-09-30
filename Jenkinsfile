@@ -12,7 +12,7 @@ pipeline {
         REMOTE_HOST = "${params.REMOTE_HOST}"
         REMOTE_BASE_DIR = "${params.REMOTE_BASE_DIR}"
         REMOTE_OWNER = "${params.REMOTE_OWNER}"
-        SSH_CREDENTIALS_ID = 'pinky-ssh-key'
+        SSH_CREDENTIALS_ID = 'brain-jenkins-private-key'
     }
 
     options {

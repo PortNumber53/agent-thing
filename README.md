@@ -5,7 +5,8 @@ An AI-powered developer agent with a Go backend, a React/Vite frontend, and a Do
 ## Architecture
 
 - Backend (Go):
-  - Web server on `:8080` with WebSocket endpoint at `/ws`.
+  - Web server on `:8080` by default (override with `AGENT_THING_LISTEN_ADDR` or `PORT`) with WebSocket endpoint at `/ws`.
+  - Exposes a JSON health check at `/health` for load balancers and deployment probes.
   - Serves the frontend during development.
   - Manages a long-lived Docker container to execute tools in a controlled environment.
   - Integrates with Google Gemini via `internal/llm` with per-minute rate limiting.
