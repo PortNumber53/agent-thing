@@ -22,13 +22,7 @@ type Server struct {
 // NewServer creates a new web server.
 func NewServer(agentLogic func(*websocket.Conn)) *Server {
 	srv := &Server{
-		router: mux.NewRouter(),
-		upgrader: websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool {
-				// Allow all connections for development.
-				return true
-			},
-		},
+		router:          mux.NewRouter(),
 		AgentLogic:      agentLogic,
 		allowedOrigins:  make(map[string]struct{}),
 		allowAllOrigins: true,
@@ -44,6 +38,16 @@ func NewServer(agentLogic func(*websocket.Conn)) *Server {
 		}
 	}
 
+	srv.upgrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			if origin == "" {
+				return true
+			}
+			return srv.isOriginAllowed(origin)
+		},
+	}
+
 	return srv
 }
 
@@ -57,7 +61,7 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("/health", s.handleHealth).Methods(http.MethodGet)
 
 	// Serve the frontend files.
-	s.router.PathPrefix("/").Handler(http.FileServer(http.Dir("./frontend/")))
+	s.router.PathPrefix("/").Handler(http.FileServer(http.Dir("./public/")))
 }
 
 // handleWebSocket upgrades an HTTP connection to a WebSocket and starts the agent logic.

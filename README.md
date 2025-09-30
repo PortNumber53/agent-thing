@@ -117,7 +117,12 @@ Implemented in `internal/tools/` and available through chat or toolbar buttons:
 ## Development tips
 
 - The WebSocket endpoint is `/ws`; the frontend connects to `ws://<host>/ws`.
-- The backend serves static files from `./frontend/` for convenience, but during development use Vite (`npm run dev`).
+- The backend serves static files from `./public/` (deployment output of the frontend); during development use Vite (`npm run dev`).
+
+## Deployment
+
+- Refer to `deploy/README.md` for details on the Jenkins pipeline, systemd unit, and nginx routing used in production.
+- The frontend (`frontend/`) builds with Vite and deploys to Cloudflare Workers/Pages. Set `VITE_BACKEND_HOST` (for example `agent.dev.portnumber53.com`) so the SPA reaches the Go backend and WebSocket endpoint.
 
 ## Deployment
 
