@@ -47,6 +47,9 @@ GEMINI_RPM=10
 
 # Host directory mounted into the dev container as /home/developer
 CHROOT_DIR=/tmp/agent-thing-chroot
+
+# CORS (comma-separated list; leave blank to allow all)
+AGENT_THING_ALLOWED_ORIGINS=https://agent.dev.portnumber53.com
 ```
 
 Notes:

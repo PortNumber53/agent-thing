@@ -28,3 +28,4 @@ The top-level `Jenkinsfile` performs the following stages:
 `systemd/agent-thing.service` expects the application to run from `/var/www/vhosts/agent-thing/current`. Override the execution user or working directory as needed before copying the file to `/etc/systemd/system/agent-thing.service`.
 
 For convenience, `systemd/agent-thing.env` sets `PORT=32000` so the backend matches the nginx upstream definition. Place this file at `/etc/agent-thing/config.env` on `pinky` and adjust as needed.
+Update `AGENT_THING_ALLOWED_ORIGINS` in the env file with the Cloudflare (or other) frontend origins so browser requests pass CORS validation.
