@@ -117,7 +117,7 @@ Implemented in `internal/tools/` and available through chat or toolbar buttons:
 ## Development tips
 
 - The WebSocket endpoint is `/ws`; the frontend connects to `ws://<host>/ws`.
-- The backend serves static files from `./frontend/` for convenience, but during development use Vite (`npm run dev`).
+- The backend serves static files from `./public/` (deployment output of the frontend); during development use Vite (`npm run dev`).
 
 ## Deployment
 

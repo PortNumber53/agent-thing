@@ -57,7 +57,7 @@ func (s *Server) setupRoutes() {
 	s.router.HandleFunc("/health", s.handleHealth).Methods(http.MethodGet)
 
 	// Serve the frontend files.
-	s.router.PathPrefix("/").Handler(http.FileServer(http.Dir("./frontend/")))
+	s.router.PathPrefix("/").Handler(http.FileServer(http.Dir("./public/")))
 }
 
 // handleWebSocket upgrades an HTTP connection to a WebSocket and starts the agent logic.

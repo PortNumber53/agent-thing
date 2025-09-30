@@ -11,7 +11,7 @@ The top-level `Jenkinsfile` performs the following stages:
 3. Build the Go backend binary to `build/bin/agent-thing`
 4. Build the frontend with `npm ci && npm run build`
 5. Assemble release assets under `build/release` with the frontend files in `public/` and include the root `Dockerfile`
-6. Rsync the release to `pinky`, rotate `/var/www/vhosts/agent-thing/<timestamp>` directories, update the `current` symlink, and restart `agent-thing.service`
+6. Rsync the release to `pinky`, rotate `/var/www/vhosts/agent-thing/<timestamp>` directories (backend binary + frontend under `public/`), update the `current` symlink, and restart `agent-thing.service`
 7. Verify the deployment by hitting `https://agent.dev.portnumber53.com/health`
 
 ### Jenkins configuration
