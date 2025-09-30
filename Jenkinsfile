@@ -85,7 +85,7 @@ pipeline {
                         RSYNC_CMD="rsync -az --delete -e \"${SSH_CMD}\""
 
                         ${SSH_CMD} ${SSH_USER}@${REMOTE_HOST} "sudo mkdir -p ${REMOTE_BASE_DIR}/${PROJECT_NAME}"
-                        ${SSH_CMD} ${SSH_USER}@${REMOTE_HOST} "rm -rf ${REMOTE_TEMP_DIR} && mkdir -p ${REMOTE_TEMP_DIR}"
+                        ${SSH_CMD} ${SSH_USER}@${REMOTE_HOST} "sudo rm -rf ${REMOTE_TEMP_DIR} && mkdir -p ${REMOTE_TEMP_DIR}"
                         ${RSYNC_CMD} build/release/ ${SSH_USER}@${REMOTE_HOST}:${REMOTE_TEMP_DIR}/
                         ${SSH_CMD} ${SSH_USER}@${REMOTE_HOST} "sudo mkdir -p ${REMOTE_RELEASE_DIR}/public"
                         ${SSH_CMD} ${SSH_USER}@${REMOTE_HOST} "sudo rsync -a ${REMOTE_TEMP_DIR}/ ${REMOTE_RELEASE_DIR}/"
