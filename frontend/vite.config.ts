@@ -9,9 +9,10 @@ export default defineConfig(({ command }) => {
     return {
       plugins: [react()],
       server: {
+        port: 15000,
         proxy: {
           '/ws': {
-            target: 'http://localhost:8080',
+            target: 'http://localhost:15001',
             ws: true,
           },
         },

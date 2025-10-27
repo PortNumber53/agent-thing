@@ -96,7 +96,7 @@ func main() {
 }
 
 func getListenAddress() string {
-	defaultAddr := ":8080"
+	defaultAddr := ":15001"
 	if envAddr := os.Getenv("AGENT_THING_LISTEN_ADDR"); envAddr != "" {
 		return envAddr
 	}
