@@ -1,13 +1,19 @@
 package tools
 
 import (
-	"agent-thing/internal/docker"
 	"fmt"
+
+	"agent-thing/internal/docker"
 )
 
 // DockerStartTool starts the Docker container.
-
-type DockerStartTool struct{}
+//
+// It needs to know which host directory should be mounted into the container
+// (the same value configured as CHROOT_DIR in config.ini and passed to
+// docker.StartContainer at process startup).
+type DockerStartTool struct {
+	ChrootDir string
+}
 
 func (t *DockerStartTool) Name() string { return "docker_start" }
 
@@ -16,10 +22,10 @@ func (t *DockerStartTool) Description() string {
 }
 
 func (t *DockerStartTool) Execute(args ...string) (string, error) {
-	// The chrootDir will need to be retrieved from config or passed in.
-	// For now, we'll assume it's available.
-	// This is a simplification and might need to be refactored.
-	return "", docker.StartContainer("/app")
+	if err := docker.StartContainer(t.ChrootDir); err != nil {
+		return "", err
+	}
+	return "Development container started.", nil
 }
 
 // DockerStopTool stops the Docker container.
@@ -37,8 +43,12 @@ func (t *DockerStopTool) Execute(args ...string) (string, error) {
 }
 
 // DockerRebuildTool rebuilds the Docker container.
-
-type DockerRebuildTool struct{}
+//
+// Similar to DockerStartTool, this tool needs the configured chrootDir so it
+// can remount the correct host directory after rebuilding.
+type DockerRebuildTool struct {
+	ChrootDir string
+}
 
 func (t *DockerRebuildTool) Name() string { return "docker_rebuild" }
 
@@ -47,7 +57,10 @@ func (t *DockerRebuildTool) Description() string {
 }
 
 func (t *DockerRebuildTool) Execute(args ...string) (string, error) {
-	return "Container rebuilt.", docker.RebuildContainer("/app")
+	if err := docker.RebuildContainer(t.ChrootDir); err != nil {
+		return "", err
+	}
+	return "Development container rebuilt.", nil
 }
 
 // DockerStatusTool gets the status of the Docker container.

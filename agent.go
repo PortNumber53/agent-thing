@@ -78,9 +78,19 @@ func main() {
 	toolSet.Add(&tools.FileWriteTool{})
 	toolSet.Add(&tools.FileListTool{})
 	toolSet.Add(&tools.SSHKeyGenTool{})
-	toolSet.Add(&tools.DockerStartTool{})
+
+	// Docker lifecycle tools require the configured chroot directory so they
+	// operate on the same container mount that was set up at startup.
+	dockerStartTool := &tools.DockerStartTool{
+		ChrootDir: cfg.ChrootDir,
+	}
+	dockerRebuildTool := &tools.DockerRebuildTool{
+		ChrootDir: cfg.ChrootDir,
+	}
+
+	toolSet.Add(dockerStartTool)
 	toolSet.Add(&tools.DockerStopTool{})
-	toolSet.Add(&tools.DockerRebuildTool{})
+	toolSet.Add(dockerRebuildTool)
 	toolSet.Add(&tools.DockerStatusTool{})
 
 	// Create, configure, and add the autonomous execution tool
