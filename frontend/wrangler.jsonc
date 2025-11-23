@@ -16,6 +16,9 @@
   },
   "vars": {
     "VITE_BACKEND_HOST": "agent.dev.portnumber53.com"
+  },
+  "dev": {
+    "port": 18512
   }
   /**
    * Smart Placement

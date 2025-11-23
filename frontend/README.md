@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-By default the UI connects to `ws://localhost:8080/ws`. Override the backend by creating a `.env.local` file with:
+By default the UI connects to `ws://localhost:18510/ws` (proxied to the backend on port 18511). Override the backend by creating a `.env.local` file with:
 
 ```
 VITE_BACKEND_HOST=agent.dev.portnumber53.com

@@ -5,13 +5,13 @@ An AI-powered developer agent with a Go backend, a React/Vite frontend, and a Do
 ## Architecture
 
 - Backend (Go):
-  - Web server on `:15001` by default (override with `AGENT_THING_LISTEN_ADDR` or `PORT`) with WebSocket endpoint at `/ws`.
+  - Web server on `:18511` by default (override with `AGENT_THING_LISTEN_ADDR` or `PORT`) with WebSocket endpoint at `/ws`.
   - Exposes a JSON health check at `/health` for load balancers and deployment probes.
   - Serves the frontend during development.
   - Manages a long-lived Docker container to execute tools in a controlled environment.
   - Integrates with Google Gemini via `internal/llm` with per-minute rate limiting.
 - Frontend (React + Vite):
-  - Dev server runs on `:15000` and proxies `/ws` to the Go server on `:15001`.
+  - Dev server runs on `:18510` and proxies `/ws` to the Go server on `:18511`.
   - Chat UI to converse with the agent and execute tools.
 - Docker:
   - `Dockerfile` builds the development environment image used by the agent.
@@ -68,6 +68,7 @@ This will:
 - Build the Docker image (first run may take a while)
 - Create/start the `dev-environment` container
 - Start the WebSocket server on `http://localhost:15001/ws`
+- Start the WebSocket server on `http://localhost:18511/ws`
 
 ## Run the frontend (dev)
 
@@ -77,7 +78,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:15000`. The Vite dev server listens on port 15000 and proxies `/ws` to `http://localhost:15001/ws`.
+Open `http://localhost:18510`. The Vite dev server listens on port 18510 and proxies `/ws` to `http://localhost:18511/ws`.
 
 ## Database migrations
 
