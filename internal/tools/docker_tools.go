@@ -22,8 +22,8 @@ func (t *DockerStartTool) Description() string {
 }
 
 func (t *DockerStartTool) Execute(args ...string) (string, error) {
-	if err := docker.StartContainer(t.ChrootDir); err != nil {
-		return "", err
+if err := docker.StartContainer(t.ChrootDir); err != nil {
+		return "", fmt.Errorf("failed to start container: %w", err)
 	}
 	return "Development container started.", nil
 }
