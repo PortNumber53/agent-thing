@@ -57,8 +57,8 @@ func (t *DockerRebuildTool) Description() string {
 }
 
 func (t *DockerRebuildTool) Execute(args ...string) (string, error) {
-	if err := docker.RebuildContainer(t.ChrootDir); err != nil {
-		return "", err
+if err := docker.RebuildContainer(t.ChrootDir); err != nil {
+		return "", fmt.Errorf("failed to rebuild container: %w", err)
 	}
 	return "Development container rebuilt.", nil
 }
