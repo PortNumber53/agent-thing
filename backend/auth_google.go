@@ -110,7 +110,7 @@ func (h *GoogleAuthHandler) handleCallback(w http.ResponseWriter, r *http.Reques
 	// Otherwise redirect back to the frontend with the token.
 	redirectBase := strings.TrimRight(h.cfg.AppBaseURL, "/")
 	if redirectBase == "" {
-		redirectBase = "http://localhost:18510"
+		redirectBase = "http://localhost:18710"
 	}
 	u, _ := url.Parse(redirectBase + "/")
 	q := u.Query()

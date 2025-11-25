@@ -15,7 +15,7 @@ cd backend
 go run .
 ```
 
-Default port: `18511` (override via `PORT` or `AGENT_THING_LISTEN_ADDR`).
+Default port: `18711` (override via `PORT` or `AGENT_THING_LISTEN_ADDR`).
 
 Backend will automatically load variables from `.env` (repo root) and/or `backend/.env` if those files exist.
 
@@ -45,7 +45,7 @@ npm install
 npm run dev
 ```
 
-Frontend dev server listens on port `18510`.
+Frontend dev server listens on port `18710`.
 
 ## Hot reload (backend)
 
@@ -83,7 +83,7 @@ Migrations live in `db/migrations/`.
 ## Required env vars for OAuth & Stripe (early support)
 
 - **Google OAuth**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URL` (optional), `JWT_SECRET`
-  - For local dev, Google must be configured with an authorized redirect URI matching the backend callback, e.g. `http://localhost:18511/callback/oauth/google`. If `GOOGLE_REDIRECT_URL` is empty, the backend defaults to `${BACKEND_BASE_URL}/callback/oauth/google`.
+  - For local dev, Google must be configured with an authorized redirect URI matching the backend callback, e.g. `http://localhost:18711/callback/oauth/google`. If `GOOGLE_REDIRECT_URL` is empty, the backend defaults to `${BACKEND_BASE_URL}/callback/oauth/google`.
 - **Stripe**: `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID` (default subscription price)
   - Webhook endpoint (register in Stripe dashboard): `${BACKEND_BASE_URL}/webhook/stripe`  
     Matches production path like `https://taskninja.work/webhook/stripe` ([reference](https://taskninja.work/webhook/stripe)).

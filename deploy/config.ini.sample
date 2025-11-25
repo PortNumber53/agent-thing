@@ -8,9 +8,9 @@
 
 # --- App URLs ---
 # Public base URL where the frontend is served.
-APP_BASE_URL=http://localhost:18510
+APP_BASE_URL=http://localhost:18710
 # Public base URL where the backend is served.
-BACKEND_BASE_URL=http://localhost:18511
+BACKEND_BASE_URL=http://localhost:18711
 
 # --- Persistence / Xata (PostgreSQL compatible) ---
 # Primary Postgres URL (preferred for prod if you have your own DB).

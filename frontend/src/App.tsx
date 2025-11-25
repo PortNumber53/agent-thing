@@ -19,7 +19,7 @@ function App() {
     const hostname = window.location.hostname
     const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
     if (isLocalhost) {
-      return `ws://${hostname}:18511/ws`
+      return `ws://${hostname}:18711/ws`
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
@@ -61,7 +61,7 @@ function App() {
     const hostname = window.location.hostname
     const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
     if (isLocalhost) {
-      return `ws://${hostname}:18511/docker/shell`
+      return `ws://${hostname}:18711/docker/shell`
     }
     const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
     return `${protocol}://${window.location.host}/docker/shell`

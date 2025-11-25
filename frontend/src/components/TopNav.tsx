@@ -42,7 +42,7 @@ export function TopNav({ onDockerStatusChange, onOpenShell }: TopNavProps) {
     const hostname = window.location.hostname
     const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
     if (isLocalhost) {
-      return `http://${hostname}:18511`
+      return `http://${hostname}:18711`
     }
 
     const protocol = window.location.protocol === 'https:' ? 'https' : 'http'

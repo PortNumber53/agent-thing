@@ -11,7 +11,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const defaultListenAddr = ":18511"
+const defaultListenAddr = ":18711"
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {

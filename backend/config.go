@@ -40,8 +40,8 @@ func LoadConfig() (*Config, error) {
 
 	// Env/.env take precedence over INI when present.
 	c := &Config{
-		AppBaseURL:     strings.TrimRight(firstNonEmpty(getEnvOptional("APP_BASE_URL"), iniCfg.AppBaseURL, "http://localhost:18510"), "/"),
-		BackendBaseURL: strings.TrimRight(firstNonEmpty(getEnvOptional("BACKEND_BASE_URL"), iniCfg.BackendBaseURL, "http://localhost:18511"), "/"),
+		AppBaseURL:     strings.TrimRight(firstNonEmpty(getEnvOptional("APP_BASE_URL"), iniCfg.AppBaseURL, "http://localhost:18710"), "/"),
+		BackendBaseURL: strings.TrimRight(firstNonEmpty(getEnvOptional("BACKEND_BASE_URL"), iniCfg.BackendBaseURL, "http://localhost:18711"), "/"),
 
 		XataDatabaseURL: firstNonEmpty(getEnvOptional("XATA_DATABASE_URL"), iniCfg.XataDatabaseURL, ""),
 		XataAPIKey:      firstNonEmpty(getEnvOptional("XATA_API_KEY"), iniCfg.XataAPIKey, ""),

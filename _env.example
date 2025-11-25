@@ -3,12 +3,12 @@
 
 # --- App ---
 # Public base URL for the frontend (used for OAuth/Stripe redirect URLs).
-APP_BASE_URL=http://localhost:18510
+APP_BASE_URL=http://localhost:18710
 # Public base URL for the backend (used for Google OAuth redirect URL).
-BACKEND_BASE_URL=http://localhost:18511
+BACKEND_BASE_URL=http://localhost:18711
 
-# Backend listen port (optional override; default 18511)
-PORT=18511
+# Backend listen port (optional override; default 18711)
+PORT=18711
 
 # --- Persistence / PostgreSQL / Xata ---
 # Use ONE of DATABASE_URL or XATA_DATABASE_URL.
