@@ -15,7 +15,13 @@ export type LibtmtInstance = {
 
 export async function loadLibtmtWasm(url = '/libtmt.wasm'): Promise<LibtmtInstance> {
   const resp = await fetch(url)
+  if (!resp.ok) {
+    throw new Error(`failed to fetch libtmt wasm at ${url} (${resp.status})`)
+  }
   const bytes = await resp.arrayBuffer()
+  if (bytes.byteLength === 0) {
+    throw new Error(`libtmt wasm at ${url} is empty`)
+  }
   const { instance } = await WebAssembly.instantiate(bytes, {})
   const e = instance.exports as unknown as Record<string, any>
 
@@ -47,5 +53,3 @@ export function writeString(wasm: LibtmtInstance, s: string): { ptr: number; len
   mem[buf.length] = 0
   return { ptr, len: buf.length }
 }
-
-

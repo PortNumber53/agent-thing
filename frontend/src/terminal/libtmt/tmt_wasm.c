@@ -80,5 +80,3 @@ void tmtw_get_cursor(TMT *vt, uint32_t *out_row, uint32_t *out_col) {
     *out_row = (uint32_t)p->r;
     *out_col = (uint32_t)p->c;
 }
-
-

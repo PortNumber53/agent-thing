@@ -30,6 +30,7 @@ export function CanvasTerminalPane({
   cols = 80,
 }: CanvasTerminalPaneProps) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'connecting' | 'open' | 'closed' | 'error'>('idle')
+  const [loadError, setLoadError] = useState<string | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const wasmRef = useRef<LibtmtInstance | null>(null)
@@ -45,19 +46,28 @@ export function CanvasTerminalPane({
 
   const initWasm = useCallback(async () => {
     setStatus('loading')
-    const wasm = await loadLibtmtWasm()
-    wasmRef.current = wasm
-    vtRef.current = wasm.tmtw_open(rows, cols)
+    setLoadError(null)
+    const wasmUrl = (import.meta.env.VITE_LIBTMT_WASM_URL as string | undefined) || '/libtmt.wasm'
+    try {
+      const wasm = await loadLibtmtWasm(wasmUrl)
+      wasmRef.current = wasm
+      vtRef.current = wasm.tmtw_open(rows, cols)
 
-    const maxCells = rows * cols
-    const charsPtr = wasm.malloc(maxCells * 4)
-    const attrsPtr = wasm.malloc(maxCells * 3)
-    buffersRef.current = {
-      charsPtr,
-      attrsPtr,
-      chars: new Uint32Array(wasm.memory.buffer, charsPtr, maxCells),
-      attrs: new Uint8Array(wasm.memory.buffer, attrsPtr, maxCells * 3),
-      maxCells,
+      const maxCells = rows * cols
+      const charsPtr = wasm.malloc(maxCells * 4)
+      const attrsPtr = wasm.malloc(maxCells * 3)
+      buffersRef.current = {
+        charsPtr,
+        attrsPtr,
+        chars: new Uint32Array(wasm.memory.buffer, charsPtr, maxCells),
+        attrs: new Uint8Array(wasm.memory.buffer, attrsPtr, maxCells * 3),
+        maxCells,
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setLoadError(msg)
+      setStatus('error')
+      throw err
     }
   }, [rows, cols])
 
@@ -120,7 +130,11 @@ export function CanvasTerminalPane({
     let cancelled = false
     ;(async () => {
       if (!wasmRef.current) {
-        await initWasm()
+        try {
+          await initWasm()
+        } catch {
+          return
+        }
       }
       if (cancelled) return
 
@@ -236,17 +250,26 @@ export function CanvasTerminalPane({
         </button>
       </header>
       <div className='terminal-pane__output terminal-pane__output--canvas'>
-        <canvas
-          ref={canvasRef}
-          tabIndex={0}
-          onKeyDown={handleKeyDown}
-          onClick={() => canvasRef.current?.focus()}
-        />
+        {loadError ? (
+          <div style={{ padding: '12px', color: '#f1a2a2', fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+            Failed to load libtmt WASM.
+            {'\n'}
+            {loadError}
+            {'\n\n'}
+            Build the module with Emscripten and place it at `frontend/public/libtmt.wasm`,
+            or set `VITE_LIBTMT_WASM_URL` to its location.
+          </div>
+        ) : (
+          <canvas
+            ref={canvasRef}
+            tabIndex={0}
+            onKeyDown={handleKeyDown}
+            onClick={() => canvasRef.current?.focus()}
+          />
+        )}
       </div>
     </section>
   )
 }
 
 export default CanvasTerminalPane
-
-

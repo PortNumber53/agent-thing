@@ -4,6 +4,11 @@
 # Where the frontend should call the backend Docker API in dev.
 VITE_BACKEND_BASE_URL=http://localhost:18711
 
+# libtmt WASM location for CanvasTerminalPane.
+# After building with emscripten, place the file at `frontend/public/libtmt.wasm`
+# or point to a custom URL here.
+# VITE_LIBTMT_WASM_URL=/libtmt.wasm
+
 # Optional: backend host for WebSocket when deploying to Cloudflare.
 # If blank, frontend uses current host unless on localhost.
 VITE_BACKEND_HOST=
