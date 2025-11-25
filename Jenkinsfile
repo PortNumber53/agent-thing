@@ -11,15 +11,22 @@ pipeline {
         XATA_API_KEY = credentials('prod-xata-api-key-agent-thing-truvis-co')
         DATABASE_URL = credentials('prod-database-url-agent-thing-truvis-co')
 
+        // App URLs (optional; if omitted backend falls back to localhost defaults)
+        // Set these as Jenkins global env vars or add credentials if you want them secret.
+        APP_BASE_URL = "${env.APP_BASE_URL ?: ''}"
+        BACKEND_BASE_URL = "${env.BACKEND_BASE_URL ?: ''}"
+
         // Google OAuth
         GOOGLE_CLIENT_ID = credentials('prod-google-client-id-agent-truvis-co')
         GOOGLE_CLIENT_SECRET = credentials('prod-google-client-secret-agent-thing-truvis-co')
+        GOOGLE_REDIRECT_URL = "${env.GOOGLE_REDIRECT_URL ?: ''}"
         JWT_SECRET = credentials('prod-jwt-secret-agent-thing-truvis-co')
 
         // Stripe
         STRIPE_SECRET_KEY = credentials('prod-stripe-secret-key-agent-thing-truvis-co')
         STRIPE_PUBLISHABLE_KEY = credentials('prod-stripe-publishable-key-agent-thing-truvis-co')
         STRIPE_WEBHOOK_SECRET = credentials('prod-stripe-webhook-secret-agent-thing-truvis-co')
+        STRIPE_PRICE_ID = "${env.STRIPE_PRICE_ID ?: ''}"
 
         // Cloudflare (for wrangler deploy if/when enabled)
         CLOUDFLARE_API_TOKEN = credentials('cloudflare-api-token')
