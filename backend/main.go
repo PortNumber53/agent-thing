@@ -55,6 +55,9 @@ func main() {
 	mux.HandleFunc("/auth/google/login", withCors(googleAuth.handleLogin))
 	mux.HandleFunc("/callback/oauth/google", withCors(googleAuth.handleCallback))
 	mux.HandleFunc("/billing/create-checkout-session", withCors(stripeHandler.handleCreateCheckoutSession))
+	// Stripe webhooks (canonical path in prod):
+	mux.HandleFunc("/webhook/stripe", withCors(stripeHandler.handleWebhook))
+	// Backwards-compatible alias:
 	mux.HandleFunc("/billing/webhook", withCors(stripeHandler.handleWebhook))
 
 	log.Printf("Backend listening on %s", listenAddr)

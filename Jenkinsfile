@@ -123,9 +123,9 @@ pipeline {
                     host="${hp%%:*}"
                     port="${hp##*:}"
                     echo "[deploy amd64] ${host}:${port}"
-                    scp -P "${port}" -o StrictHostKeyChecking=no build/bin/agent-thing-amd64 grimlock@"${host}":/tmp/agent-thing.new
-                    scp -P "${port}" -o StrictHostKeyChecking=no deploy/scripts/install_backend.sh grimlock@"${host}":/tmp/install_backend.sh
-                    ssh -p "${port}" -o StrictHostKeyChecking=no grimlock@"${host}" sudo bash -lc '
+                    scp -P "${port}" build/bin/agent-thing-amd64 grimlock@"${host}":/tmp/agent-thing.new
+                    scp -P "${port}" deploy/scripts/install_backend.sh grimlock@"${host}":/tmp/install_backend.sh
+                    ssh -p "${port}" grimlock@"${host}" sudo bash -lc '
                       set -euo pipefail
                       install -m 0755 /tmp/agent-thing.new /opt/agent-thing/bin/agent-thing
                       chmod +x /tmp/install_backend.sh
@@ -152,9 +152,9 @@ pipeline {
                     host="${hp%%:*}"
                     port="${hp##*:}"
                     echo "[deploy arm64] ${host}:${port}"
-                    scp -P "${port}" -o StrictHostKeyChecking=no build/bin/agent-thing-arm64 grimlock@"${host}":/tmp/agent-thing.new
-                    scp -P "${port}" -o StrictHostKeyChecking=no deploy/scripts/install_backend.sh grimlock@"${host}":/tmp/install_backend.sh
-                    ssh -p "${port}" -o StrictHostKeyChecking=no grimlock@"${host}" sudo bash -lc '
+                    scp -P "${port}" build/bin/agent-thing-arm64 grimlock@"${host}":/tmp/agent-thing.new
+                    scp -P "${port}" deploy/scripts/install_backend.sh grimlock@"${host}":/tmp/install_backend.sh
+                    ssh -p "${port}" grimlock@"${host}" sudo bash -lc '
                       set -euo pipefail
                       install -m 0755 /tmp/agent-thing.new /opt/agent-thing/bin/agent-thing
                       chmod +x /tmp/install_backend.sh

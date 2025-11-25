@@ -62,7 +62,7 @@ func (h *StripeHandler) handleCreateCheckoutSession(w http.ResponseWriter, r *ht
 	})
 }
 
-// POST /billing/webhook
+// POST /webhook/stripe (alias: /billing/webhook)
 func (h *StripeHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	if h.cfg.StripeWebhookSecret == "" {
 		writeJson(w, http.StatusNotImplemented, map[string]string{"error": "stripe webhook not configured"})
