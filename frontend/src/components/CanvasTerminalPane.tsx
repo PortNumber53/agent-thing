@@ -26,15 +26,28 @@ export function CanvasTerminalPane({
   wsUrl,
   isActive,
   onActiveChange,
-  rows = 24,
-  cols = 80,
+  rows: initialRows = 24,
+  cols: initialCols = 80,
 }: CanvasTerminalPaneProps) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'connecting' | 'open' | 'closed' | 'error'>('idle')
   const [loadError, setLoadError] = useState<string | null>(null)
+  // Cursor blink state lives in a ref to avoid re-rendering (which would recreate callbacks).
+  const cursorVisibleRef = useRef(true)
   const wsRef = useRef<WebSocket | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const wasmRef = useRef<LibtmtInstance | null>(null)
   const vtRef = useRef<number>(0)
+
+  const sizeRef = useRef<{ rows: number; cols: number; cellW: number; cellH: number; fontSize: number; fontFamily: string }>({
+    rows: initialRows,
+    cols: initialCols,
+    cellW: 9,
+    cellH: 18,
+    fontSize: 14,
+    fontFamily:
+      'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+  })
 
   const buffersRef = useRef<{
     charsPtr: number
@@ -42,7 +55,40 @@ export function CanvasTerminalPane({
     chars: Uint32Array
     attrs: Uint8Array
     maxCells: number
+    cursorRowPtr: number
+    cursorColPtr: number
+    cursorRowView: Uint32Array
+    cursorColView: Uint32Array
   } | null>(null)
+
+  const allocBuffers = useCallback((wasm: LibtmtInstance, rows: number, cols: number) => {
+    const maxCells = rows * cols
+    const charsPtr = wasm.malloc(maxCells * 4)
+    const attrsPtr = wasm.malloc(maxCells * 3)
+    const cursorRowPtr = wasm.malloc(4)
+    const cursorColPtr = wasm.malloc(4)
+    buffersRef.current = {
+      charsPtr,
+      attrsPtr,
+      chars: new Uint32Array(wasm.memory.buffer, charsPtr, maxCells),
+      attrs: new Uint8Array(wasm.memory.buffer, attrsPtr, maxCells * 3),
+      maxCells,
+      cursorRowPtr,
+      cursorColPtr,
+      cursorRowView: new Uint32Array(wasm.memory.buffer, cursorRowPtr, 1),
+      cursorColView: new Uint32Array(wasm.memory.buffer, cursorColPtr, 1),
+    }
+  }, [])
+
+  const freeBuffers = useCallback((wasm: LibtmtInstance) => {
+    const buf = buffersRef.current
+    if (!buf) return
+    wasm.free(buf.charsPtr)
+    wasm.free(buf.attrsPtr)
+    wasm.free(buf.cursorRowPtr)
+    wasm.free(buf.cursorColPtr)
+    buffersRef.current = null
+  }, [])
 
   const initWasm = useCallback(async () => {
     setStatus('loading')
@@ -51,25 +97,15 @@ export function CanvasTerminalPane({
     try {
       const wasm = await loadLibtmtWasm(wasmUrl)
       wasmRef.current = wasm
-      vtRef.current = wasm.tmtw_open(rows, cols)
-
-      const maxCells = rows * cols
-      const charsPtr = wasm.malloc(maxCells * 4)
-      const attrsPtr = wasm.malloc(maxCells * 3)
-      buffersRef.current = {
-        charsPtr,
-        attrsPtr,
-        chars: new Uint32Array(wasm.memory.buffer, charsPtr, maxCells),
-        attrs: new Uint8Array(wasm.memory.buffer, attrsPtr, maxCells * 3),
-        maxCells,
-      }
+      vtRef.current = wasm.tmtw_open(sizeRef.current.rows, sizeRef.current.cols)
+      allocBuffers(wasm, sizeRef.current.rows, sizeRef.current.cols)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setLoadError(msg)
       setStatus('error')
       throw err
     }
-  }, [rows, cols])
+  }, [allocBuffers])
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
@@ -79,13 +115,8 @@ export function CanvasTerminalPane({
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Ensure backing store sizes match rows/cols.
-    const fontSize = 14
-    const fontFamily = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+    const { rows, cols, cellW, cellH, fontSize, fontFamily } = sizeRef.current
     ctx.font = `${fontSize}px ${fontFamily}`
-    const metrics = ctx.measureText('M')
-    const cellW = Math.ceil(metrics.width)
-    const cellH = Math.ceil(fontSize * 1.4)
     const width = cols * cellW
     const height = rows * cellH
     if (canvas.width !== width) canvas.width = width
@@ -117,7 +148,86 @@ export function CanvasTerminalPane({
         ctx.fillText(ch, c * cellW, r * cellH + fontSize)
       }
     }
-  }, [rows, cols])
+
+    // Draw blinking cursor on top.
+    wasm.tmtw_get_cursor(vtRef.current, buf.cursorRowPtr, buf.cursorColPtr)
+    const curR = buf.cursorRowView[0]
+    const curC = buf.cursorColView[0]
+    if (cursorVisibleRef.current && curR < rows && curC < cols) {
+      const idx = curR * cols + curC
+      const codepoint = buf.chars[idx]
+      // Cursor block background.
+      ctx.save()
+      ctx.globalAlpha = 0.7
+      ctx.fillStyle = '#e5e7eb'
+      ctx.fillRect(curC * cellW, curR * cellH, cellW, cellH)
+      ctx.restore()
+      // Redraw character under cursor in dark for contrast.
+      if (codepoint !== 0) {
+        ctx.fillStyle = '#0b0d10'
+        ctx.fillText(String.fromCodePoint(codepoint), curC * cellW, curR * cellH + fontSize)
+      }
+    }
+  }, [])
+
+  // Keep a stable ref to draw for effects.
+  const drawRef = useRef(draw)
+  useEffect(() => {
+    drawRef.current = draw
+  }, [draw])
+
+  // Recompute terminal size from container and resize wasm/buffers.
+  const resizeToContainer = useCallback(() => {
+    const container = containerRef.current
+    const wasm = wasmRef.current
+    if (!container || !wasm || !vtRef.current) return
+    const rect = container.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) return
+
+    // Measure cell size from current font.
+    const fontSize = 14
+    const fontFamily = sizeRef.current.fontFamily
+    const tmpCanvas = canvasRef.current
+    const ctx = tmpCanvas?.getContext('2d')
+    if (!ctx) return
+    ctx.font = `${fontSize}px ${fontFamily}`
+    const metrics = ctx.measureText('M')
+    const cellW = Math.max(6, Math.ceil(metrics.width))
+    const cellH = Math.max(10, Math.ceil(fontSize * 1.4))
+
+    const newCols = Math.max(10, Math.floor(rect.width / cellW))
+    const newRows = Math.max(5, Math.floor(rect.height / cellH))
+    const { rows, cols } = sizeRef.current
+    if (newCols === cols && newRows === rows) return
+
+    sizeRef.current = { ...sizeRef.current, rows: newRows, cols: newCols, cellW, cellH, fontSize }
+    wasm.tmtw_resize(vtRef.current, newRows, newCols)
+    freeBuffers(wasm)
+    allocBuffers(wasm, newRows, newCols)
+    draw()
+  }, [allocBuffers, freeBuffers, draw])
+
+  useEffect(() => {
+    if (!isActive || status === 'idle') return
+    const ro = new ResizeObserver(() => resizeToContainer())
+    if (containerRef.current) ro.observe(containerRef.current)
+    // Also resize once on mount.
+    resizeToContainer()
+    return () => ro.disconnect()
+  }, [isActive, status, resizeToContainer])
+
+  // Blink cursor at 2Hz while open.
+  useEffect(() => {
+    if (status !== 'open') {
+      cursorVisibleRef.current = true
+      return
+    }
+    const id = window.setInterval(() => {
+      cursorVisibleRef.current = !cursorVisibleRef.current
+      drawRef.current()
+    }, 500)
+    return () => window.clearInterval(id)
+  }, [status])
 
   useEffect(() => {
     if (!isActive) {
@@ -145,6 +255,7 @@ export function CanvasTerminalPane({
 
       ws.onopen = () => {
         setStatus('open')
+        resizeToContainer()
         draw()
       }
       ws.onclose = () => setStatus('closed')
@@ -168,7 +279,7 @@ export function CanvasTerminalPane({
       cancelled = true
       wsRef.current?.close()
     }
-  }, [wsUrl, isActive, initWasm, draw])
+  }, [wsUrl, isActive, initWasm, draw, resizeToContainer])
 
   const sendBytes = useCallback((bytes: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return
@@ -249,7 +360,7 @@ export function CanvasTerminalPane({
           Clear
         </button>
       </header>
-      <div className='terminal-pane__output terminal-pane__output--canvas'>
+      <div ref={containerRef} className='terminal-pane__output terminal-pane__output--canvas'>
         {loadError ? (
           <div style={{ padding: '12px', color: '#f1a2a2', fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
             Failed to load libtmt WASM.

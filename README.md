@@ -104,6 +104,6 @@ Migrations live in `db/migrations/`.
 - **Google OAuth**: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URL` (optional), `JWT_SECRET`
   - For local dev, Google must be configured with an authorized redirect URI matching the backend callback, e.g. `http://localhost:18711/callback/oauth/google`. If `GOOGLE_REDIRECT_URL` is empty, the backend defaults to `${BACKEND_BASE_URL}/callback/oauth/google`.
 - **Stripe**: `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID` (default subscription price)
-  - Webhook endpoint (register in Stripe dashboard): `${BACKEND_BASE_URL}/webhook/stripe`  
+  - Webhook endpoint (register in Stripe dashboard): `${BACKEND_BASE_URL}/webhook/stripe`
     Matches production path like `https://taskninja.work/webhook/stripe` ([reference](https://taskninja.work/webhook/stripe)).
 - **Xata (optional)**: `XATA_DATABASE_URL`, `XATA_API_KEY`

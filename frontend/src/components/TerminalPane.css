@@ -47,6 +47,22 @@
   cursor: text;
 }
 
+/* Canvas-based terminal should fill the available area and not add padding/scrollbars. */
+.terminal-pane__output--canvas {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.terminal-pane__output--canvas canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  outline: none;
+}
+
 .terminal-pane__cursor {
   display: inline-block;
   margin-left: 2px;
