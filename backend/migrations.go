@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -45,17 +47,21 @@ func maybeHandleMigrateSubcommand(cfg *Config) bool {
 		return true
 	}
 
-	dsn := cfg.DatabaseURL
-	if dsn == "" {
-		dsn = cfg.XataDatabaseURL
+	rawDSN := cfg.DatabaseURL
+	source := "DATABASE_URL"
+	if strings.TrimSpace(rawDSN) == "" {
+		rawDSN = cfg.XataDatabaseURL
+		source = "XATA_DATABASE_URL"
 	}
-	if dsn == "" {
+	rawDSN = sanitizeDSN(rawDSN)
+	if rawDSN == "" {
 		log.Fatalf("DATABASE_URL or XATA_DATABASE_URL must be set for migrations")
 	}
 
-	m, err := migrate.New("file://db/migrations", dsn)
+	logMigrationDSN(source, rawDSN)
+	m, err := migrate.New("file://db/migrations", rawDSN)
 	if err != nil {
-		log.Fatalf("Failed to create migrate instance: %v", err)
+		log.Fatalf("Failed to create migrate instance (source=%s): %v", source, err)
 	}
 
 	switch command {
@@ -80,4 +86,32 @@ func maybeHandleMigrateSubcommand(cfg *Config) bool {
 	}
 
 	return true
+}
+
+// sanitizeDSN trims whitespace/quotes and adds postgres:// if the scheme is missing.
+func sanitizeDSN(dsn string) string {
+	dsn = strings.TrimSpace(dsn)
+	dsn = strings.Trim(dsn, `"'`)
+	if dsn == "" {
+		return ""
+	}
+	if !strings.Contains(dsn, "://") {
+		// Most Jenkins credential types return raw host/user strings; assume postgres if unset.
+		dsn = "postgres://" + dsn
+	}
+	return dsn
+}
+
+// logMigrationDSN logs a safe summary without secrets.
+func logMigrationDSN(source, dsn string) {
+	u, err := url.Parse(dsn)
+	if err != nil {
+		log.Printf("migrate using %s (unable to parse url): %s", source, err)
+		return
+	}
+	host := u.Host
+	if host == "" {
+		host = "(no-host)"
+	}
+	log.Printf("migrate using %s scheme=%s host=%s path=%s", source, u.Scheme, host, u.Path)
 }
