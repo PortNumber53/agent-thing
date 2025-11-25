@@ -40,12 +40,13 @@ pipeline {
             }
         }
 
-        stage('Backend: Build') {
+        stage('Backend: Build (linux/amd64 + linux/arm64)') {
             steps {
                 sh '''
                   set -euo pipefail
                   mkdir -p build/bin
-                  go build -o build/bin/agent-thing ./backend
+                  GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o build/bin/agent-thing-amd64 ./backend
+                  GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o build/bin/agent-thing-arm64 ./backend
                 '''
             }
         }
@@ -56,6 +57,16 @@ pipeline {
                     sh 'npm ci'
                     sh 'npm run build'
                 }
+            }
+        }
+
+        stage('DB: Migrate Up') {
+            steps {
+                sh '''
+                  set -euo pipefail
+                  # Uses DATABASE_URL or XATA_DATABASE_URL from secrets env.
+                  go run ./backend migrate up
+                '''
             }
         }
 
@@ -71,7 +82,8 @@ pipeline {
                   set -euo pipefail
                   rm -rf ${RELEASE_DIR}
                   mkdir -p ${RELEASE_DIR}/public
-                  cp build/bin/agent-thing ${RELEASE_DIR}/
+                  cp build/bin/agent-thing-amd64 ${RELEASE_DIR}/agent-thing-amd64
+                  cp build/bin/agent-thing-arm64 ${RELEASE_DIR}/agent-thing-arm64
                   cp Dockerfile ${RELEASE_DIR}/
                   cp -r frontend/dist/* ${RELEASE_DIR}/public/
                   mkdir -p build/packages
@@ -79,6 +91,70 @@ pipeline {
                 '''
 
                 archiveArtifacts artifacts: "${env.RELEASE_TAR}", fingerprint: true
+            }
+        }
+
+        stage('Deploy: Frontend (Cloudflare Workers)') {
+            agent { label 'brain' }
+            steps {
+                dir('frontend') {
+                    sh '''
+                      set -euo pipefail
+                      npm ci
+                      npm run deploy
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy: Backend (AMD64)') {
+            steps {
+                sh '''
+                  set -euo pipefail
+                  AMD_HOSTS=("192.168.68.40:22040" "192.168.68.50:22050")
+                  for hp in "${AMD_HOSTS[@]}"; do
+                    host="${hp%%:*}"
+                    port="${hp##*:}"
+                    echo "[deploy amd64] ${host}:${port}"
+                    scp -P "${port}" -o StrictHostKeyChecking=no build/bin/agent-thing-amd64 grimlock@"${host}":/tmp/agent-thing.new
+                    scp -P "${port}" -o StrictHostKeyChecking=no deploy/scripts/install_backend.sh grimlock@"${host}":/tmp/install_backend.sh
+                    ssh -p "${port}" -o StrictHostKeyChecking=no grimlock@"${host}" sudo bash -lc '
+                      set -euo pipefail
+                      install -m 0755 /tmp/agent-thing.new /opt/agent-thing/bin/agent-thing
+                      chmod +x /tmp/install_backend.sh
+                      /tmp/install_backend.sh
+                    '
+                  done
+                '''
+            }
+        }
+
+        stage('Deploy: Backend (ARM64)') {
+            steps {
+                sh '''
+                  set -euo pipefail
+                  ARM_HOSTS=(
+                    "163.192.9.21:22"
+                    "129.146.3.224:22"
+                    "150.136.217.87:22"
+                    "164.152.111.231:22"
+                    "168.138.152.114:22"
+                    "144.24.200.77:22"
+                  )
+                  for hp in "${ARM_HOSTS[@]}"; do
+                    host="${hp%%:*}"
+                    port="${hp##*:}"
+                    echo "[deploy arm64] ${host}:${port}"
+                    scp -P "${port}" -o StrictHostKeyChecking=no build/bin/agent-thing-arm64 grimlock@"${host}":/tmp/agent-thing.new
+                    scp -P "${port}" -o StrictHostKeyChecking=no deploy/scripts/install_backend.sh grimlock@"${host}":/tmp/install_backend.sh
+                    ssh -p "${port}" -o StrictHostKeyChecking=no grimlock@"${host}" sudo bash -lc '
+                      set -euo pipefail
+                      install -m 0755 /tmp/agent-thing.new /opt/agent-thing/bin/agent-thing
+                      chmod +x /tmp/install_backend.sh
+                      /tmp/install_backend.sh
+                    '
+                  done
+                '''
             }
         }
     }

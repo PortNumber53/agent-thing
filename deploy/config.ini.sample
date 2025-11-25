@@ -1,0 +1,50 @@
+# Agent-Thing backend configuration (INI)
+#
+# This file is read by the backend on startup.
+# Location in production: /etc/agent-thing/config.ini
+# Environment variables and .env override any values set here.
+#
+# Lines starting with '#' are comments.
+
+# --- App URLs ---
+# Public base URL where the frontend is served.
+APP_BASE_URL=http://localhost:18510
+# Public base URL where the backend is served.
+BACKEND_BASE_URL=http://localhost:18511
+
+# --- Persistence / Xata (PostgreSQL compatible) ---
+# Primary Postgres URL (preferred for prod if you have your own DB).
+# Format: postgres://user:pass@host:port/dbname?sslmode=require
+DATABASE_URL=
+
+# Xata database URL (PostgreSQL endpoint).
+XATA_DATABASE_URL=
+# Xata API key (used if you call Xata REST, optional today).
+XATA_API_KEY=
+
+# --- Google OAuth ---
+# Google OAuth client credentials.
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# OAuth redirect URL registered in Google Cloud Console.
+# If blank and GOOGLE_CLIENT_ID is set, defaults to:
+#   ${BACKEND_BASE_URL}/callback/oauth/google
+GOOGLE_REDIRECT_URL=
+
+# JWT secret used to sign auth tokens.
+JWT_SECRET=
+
+# --- Stripe ---
+# Stripe secret key for server-side API calls.
+STRIPE_SECRET_KEY=
+# Stripe publishable key (exposed to frontend).
+STRIPE_PUBLISHABLE_KEY=
+# Stripe webhook signing secret.
+STRIPE_WEBHOOK_SECRET=
+# Default price id for subscriptions.
+STRIPE_PRICE_ID=
+
+# --- Cloudflare (frontend deploy) ---
+# API token used by wrangler deploy.
+CLOUDFLARE_API_TOKEN=

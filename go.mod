@@ -12,6 +12,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/stripe/stripe-go/v83 v83.0.0
 	golang.org/x/oauth2 v0.30.0
+	gopkg.in/ini.v1 v1.67.0
 )
 
 require (

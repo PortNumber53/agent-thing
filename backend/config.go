@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 	"strings"
+
+	"gopkg.in/ini.v1"
 )
 
 type Config struct {
@@ -33,25 +35,29 @@ type Config struct {
 }
 
 func LoadConfig() (*Config, error) {
+	// Load optional INI config (prod default: /etc/agent-thing/config.ini).
+	iniCfg := loadIniConfig()
+
+	// Env/.env take precedence over INI when present.
 	c := &Config{
-		AppBaseURL:     strings.TrimRight(getEnv("APP_BASE_URL", "http://localhost:18510"), "/"),
-		BackendBaseURL: strings.TrimRight(getEnv("BACKEND_BASE_URL", "http://localhost:18511"), "/"),
+		AppBaseURL:     strings.TrimRight(firstNonEmpty(getEnvOptional("APP_BASE_URL"), iniCfg.AppBaseURL, "http://localhost:18510"), "/"),
+		BackendBaseURL: strings.TrimRight(firstNonEmpty(getEnvOptional("BACKEND_BASE_URL"), iniCfg.BackendBaseURL, "http://localhost:18511"), "/"),
 
-		XataDatabaseURL: getEnv("XATA_DATABASE_URL", ""),
-		XataAPIKey:      getEnv("XATA_API_KEY", ""),
-		DatabaseURL:     getEnv("DATABASE_URL", ""),
+		XataDatabaseURL: firstNonEmpty(getEnvOptional("XATA_DATABASE_URL"), iniCfg.XataDatabaseURL, ""),
+		XataAPIKey:      firstNonEmpty(getEnvOptional("XATA_API_KEY"), iniCfg.XataAPIKey, ""),
+		DatabaseURL:     firstNonEmpty(getEnvOptional("DATABASE_URL"), iniCfg.DatabaseURL, ""),
 
-		GoogleClientID:     getEnv("GOOGLE_CLIENT_ID", ""),
-		GoogleClientSecret: getEnv("GOOGLE_CLIENT_SECRET", ""),
-		GoogleRedirectURL:  getEnv("GOOGLE_REDIRECT_URL", ""),
-		JwtSecret:          getEnv("JWT_SECRET", ""),
+		GoogleClientID:     firstNonEmpty(getEnvOptional("GOOGLE_CLIENT_ID"), iniCfg.GoogleClientID, ""),
+		GoogleClientSecret: firstNonEmpty(getEnvOptional("GOOGLE_CLIENT_SECRET"), iniCfg.GoogleClientSecret, ""),
+		GoogleRedirectURL:  firstNonEmpty(getEnvOptional("GOOGLE_REDIRECT_URL"), iniCfg.GoogleRedirectURL, ""),
+		JwtSecret:          firstNonEmpty(getEnvOptional("JWT_SECRET"), iniCfg.JwtSecret, ""),
 
-		StripeSecretKey:      getEnv("STRIPE_SECRET_KEY", ""),
-		StripePublishableKey: getEnv("STRIPE_PUBLISHABLE_KEY", ""),
-		StripeWebhookSecret:  getEnv("STRIPE_WEBHOOK_SECRET", ""),
-		StripeDefaultPriceID: getEnv("STRIPE_PRICE_ID", ""),
+		StripeSecretKey:      firstNonEmpty(getEnvOptional("STRIPE_SECRET_KEY"), iniCfg.StripeSecretKey, ""),
+		StripePublishableKey: firstNonEmpty(getEnvOptional("STRIPE_PUBLISHABLE_KEY"), iniCfg.StripePublishableKey, ""),
+		StripeWebhookSecret:  firstNonEmpty(getEnvOptional("STRIPE_WEBHOOK_SECRET"), iniCfg.StripeWebhookSecret, ""),
+		StripeDefaultPriceID: firstNonEmpty(getEnvOptional("STRIPE_PRICE_ID"), iniCfg.StripeDefaultPriceID, ""),
 
-		CloudflareAPIToken: getEnv("CLOUDFLARE_API_TOKEN", ""),
+		CloudflareAPIToken: firstNonEmpty(getEnvOptional("CLOUDFLARE_API_TOKEN"), iniCfg.CloudflareAPIToken, ""),
 	}
 
 	if c.GoogleRedirectURL == "" && c.GoogleClientID != "" {
@@ -76,9 +82,55 @@ func LoadConfig() (*Config, error) {
 	return c, nil
 }
 
-func getEnv(key string, fallback string) string {
-	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
-		return v
+func getEnvOptional(key string) string {
+	return strings.TrimSpace(os.Getenv(key))
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
 	}
-	return fallback
+	return ""
+}
+
+// loadIniConfig tries CONFIG_INI_PATH or /etc/agent-thing/config.ini.
+// Missing/invalid file is not fatal; we just log and continue with env defaults.
+func loadIniConfig() *Config {
+	path := strings.TrimSpace(os.Getenv("CONFIG_INI_PATH"))
+	if path == "" {
+		path = "/etc/agent-thing/config.ini"
+	}
+
+	if _, err := os.Stat(path); err != nil {
+		log.Printf("ini config not found at %s (ok for dev): %v", path, err)
+		return &Config{}
+	}
+
+	f, err := ini.Load(path)
+	if err != nil {
+		log.Printf("failed to load ini config at %s (ignored): %v", path, err)
+		return &Config{}
+	}
+
+	sec := f.Section("")
+	c := &Config{
+		AppBaseURL:           sec.Key("APP_BASE_URL").String(),
+		BackendBaseURL:       sec.Key("BACKEND_BASE_URL").String(),
+		XataDatabaseURL:      sec.Key("XATA_DATABASE_URL").String(),
+		XataAPIKey:           sec.Key("XATA_API_KEY").String(),
+		DatabaseURL:          sec.Key("DATABASE_URL").String(),
+		GoogleClientID:       sec.Key("GOOGLE_CLIENT_ID").String(),
+		GoogleClientSecret:   sec.Key("GOOGLE_CLIENT_SECRET").String(),
+		GoogleRedirectURL:    sec.Key("GOOGLE_REDIRECT_URL").String(),
+		JwtSecret:            sec.Key("JWT_SECRET").String(),
+		StripeSecretKey:      sec.Key("STRIPE_SECRET_KEY").String(),
+		StripePublishableKey: sec.Key("STRIPE_PUBLISHABLE_KEY").String(),
+		StripeWebhookSecret:  sec.Key("STRIPE_WEBHOOK_SECRET").String(),
+		StripeDefaultPriceID: sec.Key("STRIPE_PRICE_ID").String(),
+		CloudflareAPIToken:   sec.Key("CLOUDFLARE_API_TOKEN").String(),
+	}
+	log.Printf("loaded ini config from %s", path)
+	return c
 }

@@ -25,6 +25,18 @@ You can also run:
 ./backend/dev.sh
 ```
 
+## Production config + systemd
+
+- **INI config file**: backend reads an optional INI config at:
+  - `/etc/agent-thing/config.ini` (default), override with `CONFIG_INI_PATH`.
+  - Environment variables / `.env` override INI values.
+- **Sample**: see `deploy/config.ini.sample`.
+- **systemd unit**: see `deploy/systemd/agent-thing.service`.
+- **Bootstrap**: `deploy/scripts/install_backend.sh` will:
+  - create `/opt/agent-thing/bin` and `/etc/agent-thing`,
+  - copy the sample to `/etc/agent-thing/config.ini` if missing,
+  - install/enable/restart `agent-thing.service`.
+
 ## Run frontend locally
 
 ```bash

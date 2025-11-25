@@ -1,0 +1,20 @@
+[Unit]
+Description=Agent-Thing Backend
+After=network.target
+
+[Service]
+Type=simple
+User=grimlock
+Group=grimlock
+WorkingDirectory=/opt/agent-thing
+
+# Backend reads config.ini at /etc/agent-thing/config.ini by default.
+Environment=CONFIG_INI_PATH=/etc/agent-thing/config.ini
+
+ExecStart=/opt/agent-thing/bin/agent-thing
+Restart=always
+RestartSec=2
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
