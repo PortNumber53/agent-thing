@@ -147,7 +147,6 @@ pipeline {
         }
 
         stage('Deploy: Frontend (Cloudflare Workers)') {
-            agent { label 'brain' }
             steps {
                 dir('frontend') {
                     sh '''
