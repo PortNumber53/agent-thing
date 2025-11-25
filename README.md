@@ -47,6 +47,25 @@ npm run dev
 
 Frontend dev server listens on port `18710`.
 
+### Canvas terminal (libtmt WASM)
+
+If you want to use the canvas/WASM terminal instead of the minimal TS emulator:
+
+1. Build `libtmt.wasm` (no local Emscripten required; uses Docker):
+
+```bash
+cd frontend
+./scripts/build_libtmt_wasm.sh
+```
+
+2. Run the frontend with the WASM engine:
+
+```bash
+VITE_TERMINAL_ENGINE=wasm npm run dev
+```
+
+The WASM file is served from `frontend/public/libtmt.wasm`. You can override that path with `VITE_LIBTMT_WASM_URL`.
+
 ## Hot reload (backend)
 
 Install Air (once):
