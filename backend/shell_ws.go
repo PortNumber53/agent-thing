@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"io"
 	"log"
 	"net/http"
@@ -64,7 +65,13 @@ func handleDockerShellWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	// WS -> PTY
+	type resizeMsg struct {
+		Type string `json:"type"`
+		Rows int    `json:"rows"`
+		Cols int    `json:"cols"`
+	}
+
+	// WS -> PTY (also accepts resize control messages)
 	for {
 		messageType, msg, wsErr := conn.ReadMessage()
 		if wsErr != nil {
@@ -73,7 +80,20 @@ func handleDockerShellWS(w http.ResponseWriter, r *http.Request) {
 		}
 		// Accept both text and binary frames; forward bytes as-is.
 		switch messageType {
-		case websocket.TextMessage, websocket.BinaryMessage:
+		case websocket.TextMessage:
+			// Try to parse resize control message.
+			if len(msg) > 0 && msg[0] == '{' {
+				var rm resizeMsg
+				if err := json.Unmarshal(msg, &rm); err == nil && rm.Type == "resize" && rm.Rows > 0 && rm.Cols > 0 {
+					_ = pty.Setsize(ptmx, &pty.Winsize{
+						Rows: uint16(rm.Rows),
+						Cols: uint16(rm.Cols),
+					})
+					continue
+				}
+			}
+			_, _ = ptmx.Write(msg)
+		case websocket.BinaryMessage:
 			_, _ = ptmx.Write(msg)
 		}
 	}

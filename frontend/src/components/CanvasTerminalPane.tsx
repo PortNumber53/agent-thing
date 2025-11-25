@@ -31,15 +31,49 @@ export function CanvasTerminalPane({
 }: CanvasTerminalPaneProps) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'connecting' | 'open' | 'closed' | 'error'>('idle')
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [textLayer, setTextLayer] = useState<string>('')
+  const [layerStyle, setLayerStyle] = useState<{
+    fontSize: number
+    lineHeight: number
+    fontFamily: string
+  }>({
+    fontSize: 14,
+    lineHeight: 18,
+    fontFamily:
+      'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+  })
   // Cursor blink state lives in a ref to avoid re-rendering (which would recreate callbacks).
   const cursorVisibleRef = useRef(true)
   const wsRef = useRef<WebSocket | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const measurerRef = useRef<HTMLPreElement | null>(null)
+  const textLayerRef = useRef<HTMLPreElement | null>(null)
   const wasmRef = useRef<LibtmtInstance | null>(null)
   const vtRef = useRef<number>(0)
+  const lastResizeAtRef = useRef<number>(0)
+  const lastAppliedWidthRef = useRef<number>(0)
+  const lastAppliedHeightRef = useRef<number>(0)
+  const didPostFirstOutputResizeRef = useRef<boolean>(false)
 
-  const sizeRef = useRef<{ rows: number; cols: number; cellW: number; cellH: number; fontSize: number; fontFamily: string }>({
+  const sendResizeToServer = useCallback((rows: number, cols: number) => {
+    const ws = wsRef.current
+    if (!ws || ws.readyState !== WebSocket.OPEN) return
+    try {
+      ws.send(JSON.stringify({ type: 'resize', rows, cols }))
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  const sizeRef = useRef<{
+    rows: number
+    cols: number
+    cellW: number
+    cellH: number
+    fontSize: number
+    fontFamily: string
+  }>({
     rows: initialRows,
     cols: initialCols,
     cellW: 9,
@@ -60,6 +94,25 @@ export function CanvasTerminalPane({
     cursorRowView: Uint32Array
     cursorColView: Uint32Array
   } | null>(null)
+
+  const buildTextLayer = useCallback((): string => {
+    const wasm = wasmRef.current
+    const buf = buffersRef.current
+    if (!wasm || !buf || !vtRef.current) return ''
+    const { rows, cols } = sizeRef.current
+    wasm.tmtw_dump(vtRef.current, buf.charsPtr, buf.attrsPtr, buf.maxCells)
+    const lines: string[] = []
+    for (let r = 0; r < rows; r++) {
+      let line = ''
+      for (let c = 0; c < cols; c++) {
+        const idx = r * cols + c
+        const cp = buf.chars[idx]
+        line += cp === 0 ? ' ' : String.fromCodePoint(cp)
+      }
+      lines.push(line)
+    }
+    return lines.join('\n')
+  }, [])
 
   const allocBuffers = useCallback((wasm: LibtmtInstance, rows: number, cols: number) => {
     const maxCells = rows * cols
@@ -117,16 +170,31 @@ export function CanvasTerminalPane({
 
     const { rows, cols, cellW, cellH, fontSize, fontFamily } = sizeRef.current
     ctx.font = `${fontSize}px ${fontFamily}`
-    const width = cols * cellW
-    const height = rows * cellH
-    if (canvas.width !== width) canvas.width = width
-    if (canvas.height !== height) canvas.height = height
+    ctx.textBaseline = 'top'
+    ctx.textAlign = 'left'
+
+    // Size canvas to the container in CSS pixels and scale for DPR to avoid browser scaling drift.
+    // The terminal grid uses cols/rows derived from this same container size, so the text layer and
+    // canvas remain aligned while the terminal stays fluid.
+    const containerRect = containerRef.current?.getBoundingClientRect()
+    const cssW = containerRect?.width ?? cols * cellW
+    const cssH = containerRect?.height ?? rows * cellH
+    const dpr = window.devicePixelRatio || 1
+    const pxW = Math.max(1, Math.floor(cssW * dpr))
+    const pxH = Math.max(1, Math.floor(cssH * dpr))
+    if (canvas.width !== pxW) canvas.width = pxW
+    if (canvas.height !== pxH) canvas.height = pxH
+    canvas.style.width = `${cssW}px`
+    canvas.style.height = `${cssH}px`
+
+    // Reset transform and scale to CSS pixels.
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
     // Dump screen from wasm to buffers.
     wasm.tmtw_dump(vtRef.current, buf.charsPtr, buf.attrsPtr, buf.maxCells)
 
     ctx.fillStyle = '#0b0d10'
-    ctx.fillRect(0, 0, width, height)
+    ctx.fillRect(0, 0, cssW, cssH)
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -145,7 +213,7 @@ export function CanvasTerminalPane({
 
         const ch = String.fromCodePoint(codepoint)
         ctx.fillStyle = ANSI_COLORS[fg] ?? ANSI_COLORS[0]
-        ctx.fillText(ch, c * cellW, r * cellH + fontSize)
+        ctx.fillText(ch, c * cellW, r * cellH)
       }
     }
 
@@ -165,7 +233,7 @@ export function CanvasTerminalPane({
       // Redraw character under cursor in dark for contrast.
       if (codepoint !== 0) {
         ctx.fillStyle = '#0b0d10'
-        ctx.fillText(String.fromCodePoint(codepoint), curC * cellW, curR * cellH + fontSize)
+        ctx.fillText(String.fromCodePoint(codepoint), curC * cellW, curR * cellH)
       }
     }
   }, [])
@@ -177,35 +245,87 @@ export function CanvasTerminalPane({
   }, [draw])
 
   // Recompute terminal size from container and resize wasm/buffers.
-  const resizeToContainer = useCallback(() => {
+  // When force=true, bypass hysteresis/early-returns so we always apply a fresh PTY size
+  // (useful on initial focus/connect).
+  const resizeToContainer = useCallback((force = false) => {
     const container = containerRef.current
     const wasm = wasmRef.current
     if (!container || !wasm || !vtRef.current) return
     const rect = container.getBoundingClientRect()
     if (rect.width <= 0 || rect.height <= 0) return
 
-    // Measure cell size from current font.
-    const fontSize = 14
+    // Measure cell size from a DOM pre using the exact same font metrics as selection layer.
+    const fontSize = sizeRef.current.fontSize
     const fontFamily = sizeRef.current.fontFamily
-    const tmpCanvas = canvasRef.current
-    const ctx = tmpCanvas?.getContext('2d')
-    if (!ctx) return
-    ctx.font = `${fontSize}px ${fontFamily}`
-    const metrics = ctx.measureText('M')
-    const cellW = Math.max(6, Math.ceil(metrics.width))
-    const cellH = Math.max(10, Math.ceil(fontSize * 1.4))
+    let cellW = sizeRef.current.cellW
+    let cellH = sizeRef.current.cellH
 
-    const newCols = Math.max(10, Math.floor(rect.width / cellW))
-    const newRows = Math.max(5, Math.floor(rect.height / cellH))
+    const measurer = measurerRef.current
+    if (measurer) {
+      measurer.style.fontSize = `${fontSize}px`
+      measurer.style.fontFamily = fontFamily
+      measurer.style.letterSpacing = '0px'
+      // Use a long run to reduce rounding error when averaging cell width.
+      measurer.textContent = `${'M'.repeat(100)}\nM`
+      const mrect = measurer.getBoundingClientRect()
+      const lines = 2
+      const colsMeasured = 100
+      cellW = mrect.width / colsMeasured
+      cellH = mrect.height / lines
+      if (!Number.isFinite(cellW) || cellW < 6) cellW = 9
+      if (!Number.isFinite(cellH) || cellH < 10) cellH = 18
+    }
+
+    // Derive columns/rows from available space.
+    // Use hysteresis to avoid +/-1 jitter that can resize libtmt while typing.
+    // For cols, prefer ceil when it still fits within a small tolerance. This avoids chronic
+    // under-counting when DOM-measured cellW is slightly larger than actual glyph width.
+    const rawCols = rect.width / cellW
+    const floorCols = Math.floor(rawCols)
+    const ceilCols = Math.ceil(rawCols)
+    const fitsCeil = ceilCols * cellW <= rect.width + cellW * 0.2
+    const targetCols = Math.max(10, fitsCeil ? ceilCols : floorCols)
+    const targetRows = Math.max(5, Math.floor((rect.height + cellH * 0.1) / cellH))
     const { rows, cols } = sizeRef.current
-    if (newCols === cols && newRows === rows) return
+    if (!force && targetCols === cols && targetRows === rows) return
+
+    const now = performance.now()
+    const deltaCols = targetCols - cols
+    const deltaRows = targetRows - rows
+    const recent = now - lastResizeAtRef.current < 80
+
+    let newCols = targetCols
+    let newRows = targetRows
+    if (!force && Math.abs(deltaCols) === 1) {
+      const lastW = lastAppliedWidthRef.current || rect.width
+      if (Math.abs(rect.width - lastW) < cellW * 0.6 && recent) {
+        newCols = cols
+      }
+    }
+    if (!force && Math.abs(deltaRows) === 1) {
+      const lastH = lastAppliedHeightRef.current || rect.height
+      if (Math.abs(rect.height - lastH) < cellH * 0.6 && recent) {
+        newRows = rows
+      }
+    }
+    if (!force && newCols === cols && newRows === rows) return
 
     sizeRef.current = { ...sizeRef.current, rows: newRows, cols: newCols, cellW, cellH, fontSize }
     wasm.tmtw_resize(vtRef.current, newRows, newCols)
+    sendResizeToServer(newRows, newCols)
     freeBuffers(wasm)
     allocBuffers(wasm, newRows, newCols)
     draw()
-  }, [allocBuffers, freeBuffers, draw])
+    setTextLayer(buildTextLayer())
+    setLayerStyle({
+      fontSize: sizeRef.current.fontSize,
+      lineHeight: sizeRef.current.cellH,
+      fontFamily: sizeRef.current.fontFamily,
+    })
+    lastResizeAtRef.current = now
+    lastAppliedWidthRef.current = rect.width
+    lastAppliedHeightRef.current = rect.height
+  }, [allocBuffers, freeBuffers, draw, buildTextLayer, sendResizeToServer])
 
   useEffect(() => {
     if (!isActive || status === 'idle') return
@@ -255,8 +375,14 @@ export function CanvasTerminalPane({
 
       ws.onopen = () => {
         setStatus('open')
-        resizeToContainer()
+        // Initial layout can still be settling (fonts, scrollbars, parent flex),
+        // so perform a couple of follow-up resizes to ensure PTY and wasm grid match.
+        didPostFirstOutputResizeRef.current = false
+        resizeToContainer(true)
+        requestAnimationFrame(() => resizeToContainer(true))
+        window.setTimeout(() => resizeToContainer(true), 120)
         draw()
+        setTextLayer(buildTextLayer())
       }
       ws.onclose = () => setStatus('closed')
       ws.onerror = () => setStatus('error')
@@ -271,7 +397,17 @@ export function CanvasTerminalPane({
         const { ptr, len } = writeString(wasm, text)
         wasm.tmtw_write(vtRef.current, ptr, len)
         wasm.free(ptr)
+
+        // After the first chunk of PTY output arrives, the layout/fonts/scrollbar gutter
+        // are guaranteed to be settled. Re-run resize once to ensure PTY cols/rows match
+        // the final measured canvas width regardless of focus/connect ordering.
+        if (!didPostFirstOutputResizeRef.current) {
+          didPostFirstOutputResizeRef.current = true
+          window.setTimeout(() => resizeToContainer(true), 0)
+        }
+
         draw()
+        setTextLayer(buildTextLayer())
       }
     })()
 
@@ -279,15 +415,24 @@ export function CanvasTerminalPane({
       cancelled = true
       wsRef.current?.close()
     }
-  }, [wsUrl, isActive, initWasm, draw, resizeToContainer])
+  }, [wsUrl, isActive, initWasm, draw, resizeToContainer, buildTextLayer])
 
   const sendBytes = useCallback((bytes: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return
     wsRef.current.send(bytes)
   }, [])
 
+  const pasteFromClipboard = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      if (text) sendBytes(text)
+    } catch {
+      // ignore; browser may block without user gesture
+    }
+  }, [sendBytes])
+
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLCanvasElement>) => {
+    (e: React.KeyboardEvent<HTMLElement>) => {
       if (!isActive || status !== 'open') return
       if (e.metaKey) return
 
@@ -336,6 +481,87 @@ export function CanvasTerminalPane({
     [isActive, status, sendBytes],
   )
 
+  const handleKeyDownWithClipboard = useCallback(
+    (e: React.KeyboardEvent<HTMLElement>) => {
+      if (!isActive || status !== 'open') return
+
+      const keyLower = e.key.toLowerCase()
+
+      // Paste shortcuts:
+      // - macOS: Cmd+V
+      // - Windows/Linux: Ctrl+Shift+V
+      const isPaste =
+        (e.metaKey && !e.shiftKey && keyLower === 'v') ||
+        (e.ctrlKey && e.shiftKey && keyLower === 'v')
+
+      if (isPaste) {
+        e.preventDefault()
+        e.stopPropagation()
+        void pasteFromClipboard()
+        return
+      }
+
+      handleKeyDown(e)
+    },
+    [isActive, status, pasteFromClipboard, handleKeyDown],
+  )
+
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent<HTMLElement>) => {
+      if (!isActive || status !== 'open') return
+      const text = e.clipboardData.getData('text')
+      if (text) {
+        e.preventDefault()
+        e.stopPropagation()
+        sendBytes(text)
+      }
+    },
+    [isActive, status, sendBytes],
+  )
+
+  const selectLineAtClientY = useCallback(
+    (clientY: number) => {
+      const pre = textLayerRef.current
+      if (!pre) return
+      const rect = pre.getBoundingClientRect()
+      const { cols, rows } = sizeRef.current
+      const lineHeight = layerStyle.lineHeight || 18
+      const y = clientY - rect.top
+      const lineIdx = Math.max(0, Math.min(rows - 1, Math.floor(y / lineHeight)))
+
+      const textNode = pre.firstChild
+      if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return
+
+      const textLen = (textNode as Text).data.length
+      const lineStart = lineIdx * (cols + 1) // +1 for '\n'
+      const lineEnd = Math.min(textLen, lineStart + cols)
+
+      const range = document.createRange()
+      range.setStart(textNode, lineStart)
+      range.setEnd(textNode, lineEnd)
+
+      const sel = window.getSelection()
+      if (sel) {
+        sel.removeAllRanges()
+        sel.addRange(range)
+      }
+    },
+    [layerStyle.lineHeight],
+  )
+
+  const handleTextLayerMouseUp = useCallback(
+    (e: React.MouseEvent<HTMLPreElement>) => {
+      // detail==2 for double click, ==3 for triple click.
+      if (e.detail >= 2) {
+        e.preventDefault()
+        e.stopPropagation()
+        // Native selection is applied after this handler; apply ours on next frame.
+        requestAnimationFrame(() => selectLineAtClientY(e.clientY))
+      }
+    },
+    [selectLineAtClientY],
+  )
+
   const clearScreen = useCallback(() => {
     const wasm = wasmRef.current
     if (!wasm || !vtRef.current) return
@@ -344,7 +570,19 @@ export function CanvasTerminalPane({
     const resetFn = (wasm as any).tmt_reset ?? (wasm as any)._tmt_reset
     if (typeof resetFn === 'function') resetFn(vtRef.current)
     draw()
-  }, [draw])
+    setTextLayer(buildTextLayer())
+  }, [draw, buildTextLayer])
+
+  const handleFocusReflow = useCallback(() => {
+    if (status !== 'open') return
+    // Same settle-pass as ws.onopen for cases where container width
+    // changes without triggering ResizeObserver (scrollbar/gutter/font swap).
+    resizeToContainer(true)
+    requestAnimationFrame(() => resizeToContainer(true))
+    window.setTimeout(() => resizeToContainer(true), 120)
+    draw()
+    setTextLayer(buildTextLayer())
+  }, [status, resizeToContainer, draw, buildTextLayer])
 
   return (
     <section className='terminal-pane'>
@@ -371,12 +609,40 @@ export function CanvasTerminalPane({
             or set `VITE_LIBTMT_WASM_URL` to its location.
           </div>
         ) : (
-          <canvas
-            ref={canvasRef}
-            tabIndex={0}
-            onKeyDown={handleKeyDown}
-            onClick={() => canvasRef.current?.focus()}
-          />
+          <div className='terminal-pane__canvas-wrap'>
+            <canvas ref={canvasRef} />
+            {/* Hidden measurer to align DOM and canvas metrics. */}
+            <pre
+              ref={measurerRef}
+              aria-hidden='true'
+              style={{
+                position: 'absolute',
+                visibility: 'hidden',
+                whiteSpace: 'pre',
+                padding: '0',
+                margin: '0',
+                inset: '0 auto auto 0',
+              }}
+            />
+            <pre
+              className='terminal-pane__text-layer'
+              ref={textLayerRef}
+              tabIndex={0}
+              style={{
+                fontSize: layerStyle.fontSize,
+                lineHeight: `${layerStyle.lineHeight}px`,
+                fontFamily: layerStyle.fontFamily,
+                // Small constant tweak so DOM selection aligns with canvas glyphs.
+                transform: 'translateY(-2px)',
+              }}
+              onKeyDown={handleKeyDownWithClipboard}
+              onPaste={handlePaste}
+              onFocus={handleFocusReflow}
+              onMouseUp={handleTextLayerMouseUp}
+            >
+              {textLayer}
+            </pre>
+          </div>
         )}
       </div>
     </section>

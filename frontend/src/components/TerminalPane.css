@@ -63,6 +63,41 @@
   outline: none;
 }
 
+/* Canvas + selectable text overlay container */
+.terminal-pane__canvas-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.terminal-pane__canvas-wrap canvas {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* Transparent text layer on top of canvas for native selection/copy */
+.terminal-pane__text-layer {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  white-space: pre;
+  overflow: hidden;
+  user-select: text;
+  pointer-events: auto;
+  color: transparent;
+  background: transparent;
+  outline: none;
+  caret-color: transparent;
+  z-index: 2;
+}
+
+.terminal-pane__text-layer::selection {
+  background: rgba(120, 170, 255, 0.35);
+  color: transparent;
+}
+
 .terminal-pane__cursor {
   display: inline-block;
   margin-left: 2px;
