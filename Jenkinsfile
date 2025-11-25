@@ -112,7 +112,7 @@ pipeline {
                     echo "[deploy amd64] ${host}:${port}"
                     scp -P "${port}" build/bin/agent-thing-amd64 grimlock@"${host}":/tmp/agent-thing.new
                     scp -P "${port}" deploy/scripts/install_backend.sh grimlock@"${host}":/tmp/install_backend.sh
-                    ssh -p "${port}" grimlock@"${host}" sudo bash -lc "set -euo pipefail; mkdir -p /opt/agent-thing/bin; install -m 0755 /tmp/agent-thing.new /opt/agent-thing/bin/agent-thing; chmod +x /tmp/install_backend.sh; /tmp/install_backend.sh"
+                    ssh -p "${port}" grimlock@"${host}" 'sudo bash -lc "set -euo pipefail; mkdir -p /opt/agent-thing/bin; install -m 0755 /tmp/agent-thing.new /opt/agent-thing/bin/agent-thing; chmod +x /tmp/install_backend.sh; /tmp/install_backend.sh"'
                   done
                 '''
             }
@@ -136,7 +136,7 @@ pipeline {
                     echo "[deploy arm64] ${host}:${port}"
                     scp -P "${port}" build/bin/agent-thing-arm64 grimlock@"${host}":/tmp/agent-thing.new
                     scp -P "${port}" deploy/scripts/install_backend.sh grimlock@"${host}":/tmp/install_backend.sh
-                    ssh -p "${port}" grimlock@"${host}" sudo bash -lc "set -euo pipefail; mkdir -p /opt/agent-thing/bin; install -m 0755 /tmp/agent-thing.new /opt/agent-thing/bin/agent-thing; chmod +x /tmp/install_backend.sh; /tmp/install_backend.sh"
+                    ssh -p "${port}" grimlock@"${host}" 'sudo bash -lc "set -euo pipefail; mkdir -p /opt/agent-thing/bin; install -m 0755 /tmp/agent-thing.new /opt/agent-thing/bin/agent-thing; chmod +x /tmp/install_backend.sh; /tmp/install_backend.sh"'
                   done
                 '''
             }
