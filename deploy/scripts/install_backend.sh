@@ -12,6 +12,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # into /tmp on the target; the full repo may not be present.
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." 2>/dev/null && pwd || true)"
 
+# If the service already exists/runs, stop it first to free the port before we swap binaries/units.
+if systemctl list-unit-files "${SERVICE_NAME}.service" >/dev/null 2>&1; then
+  if systemctl is-active --quiet "${SERVICE_NAME}.service"; then
+    echo "[install] stopping existing service"
+    systemctl stop "${SERVICE_NAME}.service" || true
+    # Give systemd a moment to release sockets/ports.
+    sleep 1
+  fi
+  systemctl reset-failed "${SERVICE_NAME}.service" || true
+fi
+
 mkdir -p "${BIN_DIR}" "${ETC_DIR}"
 
 if [[ ! -f "${CONFIG_PATH}" ]]; then
