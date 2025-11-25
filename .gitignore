@@ -27,6 +27,15 @@ go.work.sum
 # env file
 .env
 
+# Backend build/hotreload artifacts
+backend/tmp/
+build/
+
+# Frontend build artifacts and deps
+frontend/node_modules/
+frontend/dist/
+frontend/.wrangler/
+
 # Editor/IDE
 # .idea/
 # .vscode/
