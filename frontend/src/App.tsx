@@ -87,7 +87,7 @@ function App() {
         websocketStatus={connectionStatus}
         currentTime={currentTime}
       />
-    </div>
+      </div>
   )
 }
 
