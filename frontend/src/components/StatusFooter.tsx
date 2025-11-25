@@ -1,4 +1,4 @@
-import { DockerStatus } from './TopNav'
+import type { DockerStatus } from './TopNav'
 import './StatusFooter.css'
 
 type StatusFooterProps = {
