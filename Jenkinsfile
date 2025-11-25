@@ -101,19 +101,6 @@ pipeline {
             }
         }
 
-        stage('Deploy: Frontend (Cloudflare Workers)') {
-            agent { label 'brain' }
-            steps {
-                dir('frontend') {
-                    sh '''
-                      set -euo pipefail
-                      npm ci
-                      npm run deploy
-                    '''
-                }
-            }
-        }
-
         stage('Deploy: Backend (AMD64)') {
             steps {
                 sh '''
@@ -162,6 +149,19 @@ pipeline {
                     '
                   done
                 '''
+            }
+        }
+
+        stage('Deploy: Frontend (Cloudflare Workers)') {
+            agent { label 'brain' }
+            steps {
+                dir('frontend') {
+                    sh '''
+                      set -euo pipefail
+                      npm ci
+                      npm run deploy
+                    '''
+                }
             }
         }
     }
