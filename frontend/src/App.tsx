@@ -3,6 +3,7 @@ import TopNav from './components/TopNav'
 import type { DockerStatus } from './components/TopNav'
 import StatusFooter from './components/StatusFooter'
 import TerminalPane from './components/TerminalPane'
+import CanvasTerminalPane from './components/CanvasTerminalPane'
 import './App.css'
 
 function App() {
@@ -74,11 +75,19 @@ function App() {
         onOpenShell={() => setIsShellActive(true)}
       />
       <main className='app-content'>
-        <TerminalPane
-          wsUrl={shellWsUrl}
-          isActive={isShellActive}
-          onActiveChange={setIsShellActive}
-        />
+        {(import.meta.env.VITE_TERMINAL_ENGINE as string | undefined) === 'wasm' ? (
+          <CanvasTerminalPane
+            wsUrl={shellWsUrl}
+            isActive={isShellActive}
+            onActiveChange={setIsShellActive}
+          />
+        ) : (
+          <TerminalPane
+            wsUrl={shellWsUrl}
+            isActive={isShellActive}
+            onActiveChange={setIsShellActive}
+          />
+        )}
       </main>
       <StatusFooter
         dockerStatus={dockerFooter.status}
