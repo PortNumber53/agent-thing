@@ -57,6 +57,24 @@ func (h *GoogleAuthHandler) handleLogin(w http.ResponseWriter, r *http.Request) 
 		MaxAge:   600,
 	})
 
+	// Optional return_to provided by frontend (typically window.location.origin).
+	// We validate it to avoid open redirects and store briefly in a cookie.
+	if rt := strings.TrimSpace(r.URL.Query().Get("return_to")); rt != "" {
+		if validated, ok := validateReturnTo(r, rt); ok {
+			http.SetCookie(w, &http.Cookie{
+				Name:     "oauth_return_to",
+				Value:    validated,
+				Path:     "/",
+				HttpOnly: true,
+				Secure:   r.TLS != nil,
+				SameSite: http.SameSiteLaxMode,
+				MaxAge:   600,
+			})
+		} else {
+			log.Printf("[auth] ignoring invalid return_to=%q", rt)
+		}
+	}
+
 	url := h.oauth.AuthCodeURL(state, oauth2.AccessTypeOffline)
 	http.Redirect(w, r, url, http.StatusFound)
 }
@@ -108,9 +126,34 @@ func (h *GoogleAuthHandler) handleCallback(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Otherwise redirect back to the frontend with the token.
-	redirectBase := strings.TrimRight(h.cfg.AppBaseURL, "/")
+	redirectBase := ""
+	if rtCookie, _ := r.Cookie("oauth_return_to"); rtCookie != nil && rtCookie.Value != "" {
+		if validated, ok := validateReturnTo(r, rtCookie.Value); ok {
+			redirectBase = validated
+		} else {
+			log.Printf("[auth] invalid oauth_return_to cookie ignored")
+		}
+		// Clear cookie.
+		http.SetCookie(w, &http.Cookie{
+			Name:     "oauth_return_to",
+			Value:    "",
+			Path:     "/",
+			HttpOnly: true,
+			Secure:   r.TLS != nil,
+			SameSite: http.SameSiteLaxMode,
+			MaxAge:   -1,
+		})
+	}
 	if redirectBase == "" {
-		redirectBase = "http://localhost:18710"
+		redirectBase = strings.TrimRight(h.cfg.AppBaseURL, "/")
+	}
+	if redirectBase == "" {
+		// Last resort: derive from request host.
+		scheme := "http"
+		if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+			scheme = "https"
+		}
+		redirectBase = fmt.Sprintf("%s://%s", scheme, r.Host)
 	}
 	u, _ := url.Parse(redirectBase + "/")
 	q := u.Query()
@@ -173,4 +216,33 @@ func logIfError(err error) {
 	if err != nil {
 		log.Println(err)
 	}
+}
+
+// validateReturnTo ensures return_to is a safe absolute http(s) URL that matches the
+// current request host. In dev we also allow localhost/127.0.0.1.
+func validateReturnTo(r *http.Request, raw string) (string, bool) {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return "", false
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return "", false
+	}
+
+	hostOnly := strings.Split(r.Host, ":")[0]
+	rtHostOnly := strings.Split(u.Host, ":")[0]
+
+	// Same host is always allowed.
+	if strings.EqualFold(hostOnly, rtHostOnly) {
+		return strings.TrimRight(u.String(), "/"), true
+	}
+
+	// Dev convenience: allow localhost return_to when backend host is localhost-like.
+	if hostOnly == "localhost" || hostOnly == "127.0.0.1" {
+		if rtHostOnly == "localhost" || rtHostOnly == "127.0.0.1" {
+			return strings.TrimRight(u.String(), "/"), true
+		}
+	}
+
+	return "", false
 }

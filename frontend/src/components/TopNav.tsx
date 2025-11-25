@@ -128,7 +128,10 @@ export function TopNav({ onDockerStatusChange, onOpenShell }: TopNavProps) {
     [backendBaseUrl, refreshStatus],
   )
 
-  const googleLoginUrl = `${backendBaseUrl}/auth/google/login`
+  const googleLoginUrl = useMemo(() => {
+    const rt = encodeURIComponent(window.location.origin)
+    return `${backendBaseUrl}/auth/google/login?return_to=${rt}`
+  }, [backendBaseUrl])
 
   const handleLogin = () => {
     window.location.href = googleLoginUrl
