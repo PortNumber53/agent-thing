@@ -1,0 +1,15 @@
+# Frontend / Wrangler dev vars.
+# Copy to `frontend/.dev.vars` or set in `frontend/wrangler.jsonc` under vars.
+
+# Where the frontend should call the backend Docker API in dev.
+VITE_BACKEND_BASE_URL=http://localhost:18511
+
+# Optional: backend host for WebSocket when deploying to Cloudflare.
+# If blank, frontend uses current host unless on localhost.
+VITE_BACKEND_HOST=
+
+# Stripe publishable key for client-side checkout (test key in dev).
+VITE_STRIPE_PUBLISHABLE_KEY=
+
+# Google OAuth client id for client-side initiation (optional).
+VITE_GOOGLE_CLIENT_ID=692762508388-pj6mlv7g763kdcthb61fq429i4v5vcpv.apps.googleusercontent.com

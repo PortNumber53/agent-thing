@@ -1,0 +1,110 @@
+.top-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-height);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  background: rgba(17, 24, 39, 0.9);
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+  backdrop-filter: blur(8px);
+}
+
+.top-nav__title {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.top-nav__controls {
+  display: flex;
+  gap: 8px;
+}
+
+.top-nav__controls button {
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.top-nav__controls button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.top-nav__right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.top-nav__auth {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.top-nav__auth-btn {
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.top-nav__auth-btn--primary {
+  background: var(--color-accent);
+  border-color: transparent;
+  color: #0b1220;
+}
+
+.top-nav__auth-btn--primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.top-nav__account {
+  position: relative;
+}
+
+.top-nav__account-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 6px;
+  min-width: 140px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.top-nav__account-link {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: var(--color-text);
+}
+
+.top-nav__account-link:hover {
+  background: var(--color-surface-2);
+}
+
+.top-nav__account-separator {
+  height: 1px;
+  margin: 6px 0;
+  background: var(--color-border);
+}
+
+.top-nav__account-menu button {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+}
+
+.top-nav__account-menu button:hover {
+  background: var(--color-surface-2);
+}

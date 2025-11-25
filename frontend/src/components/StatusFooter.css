@@ -1,0 +1,80 @@
+.status-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--footer-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  background: rgba(15, 23, 42, 0.95);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  backdrop-filter: blur(6px);
+  z-index: 100;
+  font-size: 0.85rem;
+}
+
+.status-footer__left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.status-footer__right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  margin-left: 12px;
+}
+
+.status-footer__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.status-footer__label {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.status-footer__value {
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.status-footer__value--running {
+  color: var(--color-success);
+}
+
+.status-footer__value--stopped {
+  color: var(--color-warning);
+}
+
+.status-footer__value--not_found,
+.status-footer__value--unknown {
+  color: var(--color-text-muted);
+}
+
+.status-footer__value--error {
+  color: var(--color-danger);
+}
+
+.status-footer__details {
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-footer__message {
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 40vw;
+}

@@ -1,0 +1,38 @@
+# Backend environment variables (production or local)
+# Copy to `.env` (or configure in your host / Jenkins credentials).
+
+# --- App ---
+# Public base URL for the frontend (used for OAuth/Stripe redirect URLs).
+APP_BASE_URL=http://localhost:18510
+# Public base URL for the backend (used for Google OAuth redirect URL).
+BACKEND_BASE_URL=http://localhost:18511
+
+# Backend listen port (optional override; default 18511)
+PORT=18511
+
+# --- Persistence / PostgreSQL / Xata ---
+# Use ONE of DATABASE_URL or XATA_DATABASE_URL.
+DATABASE_URL=postgres://USER:PASSWORD@HOST:5432/DBNAME?sslmode=require
+
+# Xata Postgres endpoint + API key (optional; used if DATABASE_URL is empty)
+XATA_DATABASE_URL=postgres://<xata_user>:<xata_password>@<xata_host>:5432/<xata_db>?sslmode=require
+XATA_API_KEY=
+
+# --- Google OAuth ---
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+# Optional override. If blank, defaults to `${BACKEND_BASE_URL}/callback/oauth/google`.
+GOOGLE_REDIRECT_URL=
+
+# JWT signing secret (HS256)
+JWT_SECRET=
+
+# --- Stripe subscriptions ---
+STRIPE_SECRET_KEY=
+STRIPE_PUBLISHABLE_KEY=
+STRIPE_WEBHOOK_SECRET=
+# Default Price ID for subscription checkout
+STRIPE_PRICE_ID=
+
+# --- Cloudflare (optional; used for wrangler deploy/dev) ---
+CLOUDFLARE_API_TOKEN=

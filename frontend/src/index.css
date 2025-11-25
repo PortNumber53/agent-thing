@@ -1,0 +1,84 @@
+:root {
+  --color-bg: #0b1220;
+  --color-surface: #111827;
+  --color-surface-2: #0f172a;
+  --color-border: #1f2937;
+  --color-text: #e5e7eb;
+  --color-text-muted: #9ca3af;
+  --color-accent: #60a5fa;
+  --color-accent-hover: #3b82f6;
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+
+  --header-height: 56px;
+  --footer-height: 40px;
+
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: radial-gradient(1000px circle at 10% -20%, #0f172a 0%, transparent 50%), radial-gradient(900px circle at 90% -10%, #111827 0%, transparent 55%), var(--color-bg);
+  color: var(--color-text);
+}
+
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--color-accent-hover);
+}
+
+h1 {
+  margin: 0 0 8px 0;
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  padding: 8px 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: inherit;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: border-color 0.2s, background-color 0.2s, transform 0.05s;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--color-accent-hover);
+  background-color: var(--color-surface-2);
+  }
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
+  }
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
