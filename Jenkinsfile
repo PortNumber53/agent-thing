@@ -50,10 +50,10 @@ pipeline {
         stage('Backend: Build (linux/amd64 + linux/arm64)') {
             steps {
                 sh '''
-                  set -euo pipefail
-                  mkdir -p build/bin
-                  GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o build/bin/agent-thing-amd64 ./backend
-                  GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o build/bin/agent-thing-arm64 ./backend
+                    set -euo pipefail
+                    mkdir -p build/bin
+                    GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o build/bin/agent-thing-amd64 ./backend
+                    GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -o build/bin/agent-thing-arm64 ./backend
                 '''
             }
         }
@@ -86,15 +86,15 @@ pipeline {
                 }
 
                 sh '''
-                  set -euo pipefail
-                  rm -rf ${RELEASE_DIR}
-                  mkdir -p ${RELEASE_DIR}/public
-                  cp build/bin/agent-thing-amd64 ${RELEASE_DIR}/agent-thing-amd64
-                  cp build/bin/agent-thing-arm64 ${RELEASE_DIR}/agent-thing-arm64
-                  cp Dockerfile ${RELEASE_DIR}/
-                  cp -r frontend/dist/* ${RELEASE_DIR}/public/
-                  mkdir -p build/packages
-                  tar -C ${RELEASE_DIR} -czf ${RELEASE_TAR} .
+                    set -euo pipefail
+                    rm -rf ${RELEASE_DIR}
+                    mkdir -p ${RELEASE_DIR}/public
+                    cp build/bin/agent-thing-amd64 ${RELEASE_DIR}/agent-thing-amd64
+                    cp build/bin/agent-thing-arm64 ${RELEASE_DIR}/agent-thing-arm64
+                    cp Dockerfile ${RELEASE_DIR}/
+                    cp -r frontend/dist/* ${RELEASE_DIR}/public/
+                    mkdir -p build/packages
+                    tar -C ${RELEASE_DIR} -czf ${RELEASE_TAR} .
                 '''
 
                 archiveArtifacts artifacts: "${env.RELEASE_TAR}", fingerprint: true
@@ -104,9 +104,9 @@ pipeline {
         stage('Deploy: Backend (AMD64)') {
             steps {
                 sh '''
-                  set -euo pipefail
-                  AMD_HOSTS=("192.168.68.40:22040" "192.168.68.50:22050")
-                  for hp in "${AMD_HOSTS[@]}"; do
+                    set -euo pipefail
+                    AMD_HOSTS=("192.168.68.40:22040" "192.168.68.50:22050")
+                    for hp in "${AMD_HOSTS[@]}"; do
                     host="${hp%%:*}"
                     port="${hp##*:}"
                     echo "[deploy amd64] ${host}:${port}"
@@ -115,7 +115,7 @@ pipeline {
                     scp -P "${port}" deploy/config.ini.sample grimlock@"${host}":/tmp/config.ini.sample
                     scp -P "${port}" deploy/systemd/agent-thing.service grimlock@"${host}":/tmp/agent-thing.service
                     ssh -p "${port}" grimlock@"${host}" 'sudo bash -lc "set -euo pipefail; mkdir -p /opt/agent-thing/bin; install -m 0755 /tmp/agent-thing.new /opt/agent-thing/bin/agent-thing; chmod +x /tmp/install_backend.sh; /tmp/install_backend.sh"'
-                  done
+                    done
                 '''
             }
         }
